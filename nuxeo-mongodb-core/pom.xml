@@ -12,6 +12,11 @@
 
   <dependencies>
 
+    <dependency>
+      <groupId>org.nuxeo.ecm.core</groupId>
+      <artifactId>nuxeo-core-storage-mongodb</artifactId>
+    </dependency>
+
   </dependencies>
 
 </project>
