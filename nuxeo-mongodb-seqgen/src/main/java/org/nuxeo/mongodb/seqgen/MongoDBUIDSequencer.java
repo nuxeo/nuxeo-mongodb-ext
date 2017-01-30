@@ -24,7 +24,7 @@ import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.nuxeo.ecm.core.uidgen.AbstractUIDSequencer;
 import org.nuxeo.ecm.core.uidgen.UIDSequencer;
-import org.nuxeo.mongodb.core.MongoDBComponent;
+import org.nuxeo.mongodb.core.MongoDBConnectionService;
 import org.nuxeo.mongodb.core.MongoDBSerializationHelper;
 import org.nuxeo.runtime.api.Framework;
 import org.nuxeo.runtime.services.config.ConfigurationService;
@@ -72,10 +72,9 @@ public class MongoDBUIDSequencer extends AbstractUIDSequencer {
             ConfigurationService configurationService = Framework.getService(ConfigurationService.class);
             String collName = configurationService.getProperty(COLLECTION_NAME_PROPERTY, DEFAULT_COLLECTION_NAME);
             // Get a connection to MongoDB
-            MongoDBComponent mongoComponent = (MongoDBComponent) Framework.getRuntime().getComponent(
-                    "org.nuxeo.mongodb.core.MongoDBComponent");
+            MongoDBConnectionService mongoService = Framework.getService(MongoDBConnectionService.class);
             // Get database
-            MongoDatabase database = mongoComponent.getDatabase(SEQUENCE_DATABASE_ID);
+            MongoDatabase database = mongoService.getDatabase(SEQUENCE_DATABASE_ID);
             // Get collection
             coll = database.getCollection(collName);
         }

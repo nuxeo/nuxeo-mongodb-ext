@@ -42,9 +42,11 @@ import com.mongodb.client.MongoDatabase;
  *
  * @since 9.1
  */
-public class MongoDBComponent extends DefaultComponent {
+public class MongoDBComponent extends DefaultComponent implements MongoDBConnectionService {
 
     private static final Log log = LogFactory.getLog(MongoDBComponent.class);
+
+    public static final String NAME = "org.nuxeo.mongodb.core.MongoDBComponent";
 
     private static final String EP_CONNECTION = "connection";
 
@@ -116,6 +118,7 @@ public class MongoDBComponent extends DefaultComponent {
      * @return the database configured by {@link MongoDBConnectionConfig} for the input id, or the default one if it
      *         doesn't exist
      */
+    @Override
     public MongoDatabase getDatabase(String id) {
         MongoDBConnectionConfig config = registry.getCurrentContribution(id);
         MongoClient client = clients.get(id);
@@ -129,6 +132,7 @@ public class MongoDBComponent extends DefaultComponent {
     /**
      * @return all configured databases
      */
+    @Override
     public Iterable<MongoDatabase> getDatabases() {
         return () -> clients.entrySet()
                             .stream()

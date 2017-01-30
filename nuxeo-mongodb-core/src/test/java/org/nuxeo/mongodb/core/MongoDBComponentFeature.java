@@ -44,7 +44,6 @@ import com.mongodb.client.MongoCollection;
 /**
  * @since 9.1
  */
-// @Deploy({ "org.nuxeo.runtime.metrics"})
 @Deploy({ "org.nuxeo.mongodb.core", "org.nuxeo.mongodb.core.test" })
 @Features(CoreFeature.class)
 @RepositoryConfig(cleanup = Granularity.METHOD)
@@ -70,10 +69,9 @@ public class MongoDBComponentFeature extends SimpleFeature {
         List<String> repositoryNames = Framework.getService(RepositoryService.class).getRepositoryNames();
         // Clean MongoDB database
         // Get a connection to MongoDB
-        MongoDBComponent mongoComponent = (MongoDBComponent) Framework.getRuntime().getComponent(
-                "org.nuxeo.mongodb.core.MongoDBComponent");
+        MongoDBConnectionService mongoService = Framework.getService(MongoDBConnectionService.class);
         // Get database
-        mongoComponent.getDatabases().forEach(database -> {
+        mongoService.getDatabases().forEach(database -> {
             for (String collName : database.listCollectionNames()) {
                 // Filter out collections used by repositories (eg: 'default' and 'default.counters')
                 if (repositoryNames.stream().anyMatch(collName::startsWith)) {

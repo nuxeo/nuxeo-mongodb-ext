@@ -2,7 +2,7 @@
 <component name="org.nuxeo.mongodb.seqgen.contrib">
 
   <documentation>
-    MongoDB Audit Sequence Generator uses MongoDBComponent. By default, if no MongoDB connection with id 'sequence'
+    MongoDB Sequence Generator uses MongoDBComponent. By default, if no MongoDB connection with id 'sequence'
     exists, we will use the 'default' one.
 
     You could override the collection name used to store sequence by contributing to ConfigurationService like this:
@@ -11,7 +11,7 @@
         <property name="nuxeo.mongodb.seqgen.collection.name">myCollection</property>
       </extension>
     </code>
-    By default, backend will use sequence as collection name.
+    By default, backend will use 'sequence' as collection name.
   </documentation>
 
   <require>org.nuxeo.mongodb.core.MongoDBComponent</require>
