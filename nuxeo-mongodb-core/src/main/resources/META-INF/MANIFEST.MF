@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 1
-Bundle-Name: Nuxeo Live Connect Core
-Bundle-SymbolicName: org.nuxeo.ecm.liveconnect.core;singleton:=true
+Bundle-Name: Nuxeo MongoDB Core
+Bundle-SymbolicName: org.nuxeo.mongodb.core;singleton:=true
 Bundle-Version: 1.0.0
-Nuxeo-Component: OSGI-INF/liveconnect-scheduler-contrib.xml,
- OSGI-INF/liveconnect-workmanager-contrib.xml
+Nuxeo-Component: OSGI-INF/nuxeo-mongodb-core.xml
+

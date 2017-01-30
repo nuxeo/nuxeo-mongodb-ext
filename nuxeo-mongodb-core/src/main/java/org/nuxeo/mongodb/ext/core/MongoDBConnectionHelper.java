@@ -21,20 +21,25 @@
 package org.nuxeo.mongodb.ext.core;
 
 import java.net.UnknownHostException;
+import java.util.stream.StreamSupport;
 
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.MongoIterable;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.bson.Document;
 import org.nuxeo.ecm.core.api.NuxeoException;
 
-import com.mongodb.DB;
-import com.mongodb.DBCollection;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoClientURI;
 import com.mongodb.ServerAddress;
 
 /**
+ * Helper for connection to the MongoDB server
+ *
  * @since 9.1
  */
 public class MongoDBConnectionHelper {
@@ -51,17 +56,25 @@ public class MongoDBConnectionHelper {
         // Empty
     }
 
+    /**
+     * Initialize a connection to the MongoDB server
+     *
+     * @param server the server url
+     * @return the MongoDB client
+     */
     public static MongoClient newMongoClient(String server) throws UnknownHostException {
         if (StringUtils.isBlank(server)) {
             throw new NuxeoException("Missing <server> in MongoDB repository descriptor");
         }
         MongoClientOptions.Builder optionsBuilder = MongoClientOptions.builder()
-                // Can help to prevent firewall disconnects inactive connection, option not available from URI
-                .socketKeepAlive(true)
-                // don't wait for ever by default, can be overridden using URI options
-                .connectTimeout(MONGODB_OPTION_CONNECTION_TIMEOUT_MS)
-                .socketTimeout(MONGODB_OPTION_SOCKET_TIMEOUT_MS)
-                .description("Nuxeo");
+                  // Can help to prevent firewall disconnects
+                  // inactive connection, option not available from URI
+                  .socketKeepAlive(true)
+                  // don't wait for ever by default,
+                  // can be overridden using URI options
+                  .connectTimeout(MONGODB_OPTION_CONNECTION_TIMEOUT_MS)
+                  .socketTimeout(MONGODB_OPTION_SOCKET_TIMEOUT_MS)
+                  .description("Nuxeo");
         MongoClient client;
         if (server.startsWith("mongodb://")) {
             // allow mongodb:// URI syntax for the server, to pass everything in one string
@@ -75,12 +88,34 @@ public class MongoDBConnectionHelper {
         return client;
     }
 
-    public static DBCollection getCollection(MongoClient mongoClient, String dbname, String collection) {
+    /**
+     * Retrieve a collection from the MongoDB server
+     * 
+     * @param mongoClient the Mongo client
+     * @param dbname the database name
+     * @param collection the collection name
+     * @return the collection
+     */
+    public static MongoCollection<Document> getCollection(MongoClient mongoClient, String dbname, String collection) {
         if (StringUtils.isBlank(dbname)) {
             dbname = DB_DEFAULT;
         }
-        DB db = mongoClient.getDB(dbname);
+        MongoDatabase db = mongoClient.getDatabase(dbname);
         return db.getCollection(collection);
+    }
+
+    /**
+     * Check if the collection exists and if it is not empty
+     * 
+     * @param mongoClient the Mongo client
+     * @param dbname the database name
+     * @param collection the collection name
+     * @return true if the collection exists and not empty, false otherwise
+     */
+    public static boolean hasCollection(MongoClient mongoClient, String dbname, String collection) {
+        MongoIterable<String> collections = mongoClient.getDatabase(dbname).listCollectionNames();
+        boolean found = StreamSupport.stream(collections.spliterator(), false).anyMatch(collection::equals);
+        return found && getCollection(mongoClient, dbname, collection).count() > 0;
     }
 
 }
