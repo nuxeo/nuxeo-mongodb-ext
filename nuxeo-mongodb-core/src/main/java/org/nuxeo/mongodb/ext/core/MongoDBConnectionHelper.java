@@ -113,6 +113,9 @@ public class MongoDBConnectionHelper {
      * @return true if the collection exists and not empty, false otherwise
      */
     public static boolean hasCollection(MongoClient mongoClient, String dbname, String collection) {
+        if (StringUtils.isBlank(dbname)) {
+            dbname = DB_DEFAULT;
+        }
         MongoIterable<String> collections = mongoClient.getDatabase(dbname).listCollectionNames();
         boolean found = StreamSupport.stream(collections.spliterator(), false).anyMatch(collection::equals);
         return found && getCollection(mongoClient, dbname, collection).count() > 0;

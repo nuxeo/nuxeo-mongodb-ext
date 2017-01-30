@@ -39,7 +39,7 @@ import java.util.Map;
  */
 public class MongoDBDirectory extends AbstractDirectory {
 
-    protected final Map<String, Field> schemaFieldMap;
+    protected Map<String, Field> schemaFieldMap;
 
     protected boolean initialized;
 
@@ -51,14 +51,6 @@ public class MongoDBDirectory extends AbstractDirectory {
         cache.setEntryCacheWithoutReferencesName(descriptor.cacheEntryWithoutReferencesName);
         cache.setNegativeCaching(descriptor.negativeCaching);
 
-        SchemaManager schemaManager = Framework.getService(SchemaManager.class);
-        Schema schema = schemaManager.getSchema(getSchema());
-        if (schema == null) {
-            throw new DirectoryException(getSchema() + " is not a registered schema");
-        }
-        schemaFieldMap = new LinkedHashMap<>();
-        schema.getFields().forEach(f -> schemaFieldMap.put(f.getName().getLocalName(), f));
-
         initialized = false;
     }
 
@@ -69,10 +61,19 @@ public class MongoDBDirectory extends AbstractDirectory {
 
     @Override
     public Session getSession() throws DirectoryException {
+
+        SchemaManager schemaManager = Framework.getService(SchemaManager.class);
+        Schema schema = schemaManager.getSchema(getSchema());
+        if (schema == null) {
+            throw new DirectoryException(getSchema() + " is not a registered schema");
+        }
+        schemaFieldMap = new LinkedHashMap<>();
+        schema.getFields().forEach(f -> schemaFieldMap.put(f.getName().getLocalName(), f));
+
         MongoDBSession session = new MongoDBSession(this);
         addSession(session);
+
         if (!initialized && descriptor.getDataFileName() != null && !session.hasCollection(getName())) {
-            Schema schema = Framework.getService(SchemaManager.class).getSchema(getSchema());
             DirectoryCSVLoader.loadData(descriptor.getDataFileName(), descriptor.getDataFileCharacterSeparator(),
                     schema, session::createEntry);
             initialized = true;
