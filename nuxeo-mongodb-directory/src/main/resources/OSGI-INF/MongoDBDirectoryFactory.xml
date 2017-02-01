@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
-<component name="org.nuxeo.directory.MongoDBDirectoryFactory">
+<component name="org.nuxeo.directory.mongodb.MongoDBDirectoryFactory">
 
-    <implementation class="org.nuxeo.directory.MongoDBDirectoryFactory" />
+    <implementation class="org.nuxeo.directory.mongodb.MongoDBDirectoryFactory" />
 
     <require>org.nuxeo.ecm.directory.DirectoryServiceImpl</require>
 
@@ -45,7 +45,7 @@
             </code>
         </documentation>
 
-        <object class="org.nuxeo.directory.MongoDBDirectoryDescriptor" />
+        <object class="org.nuxeo.directory.mongodb.MongoDBDirectoryDescriptor" />
     </extension-point>
 
 </component>

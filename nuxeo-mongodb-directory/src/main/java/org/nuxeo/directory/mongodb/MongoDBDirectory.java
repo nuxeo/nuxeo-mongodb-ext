@@ -17,7 +17,7 @@
  *     Funsho David
  */
 
-package org.nuxeo.directory;
+package org.nuxeo.directory.mongodb;
 
 import org.nuxeo.ecm.core.schema.SchemaManager;
 import org.nuxeo.ecm.core.schema.types.Field;

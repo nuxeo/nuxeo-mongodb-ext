@@ -18,7 +18,7 @@
  *
  */
 
-package org.nuxeo.directory;
+package org.nuxeo.directory.mongodb;
 
 import org.nuxeo.common.xmap.annotation.XNode;
 import org.nuxeo.common.xmap.annotation.XObject;

@@ -18,7 +18,7 @@
  *
  */
 
-package org.nuxeo.directory;
+package org.nuxeo.directory.mongodb;
 
 import java.io.Serializable;
 import java.util.ArrayList;

@@ -2,9 +2,9 @@
 
 <component name="org.nuxeo.directory.mongodb.test">
 
-  <require>org.nuxeo.directory.MongoDBDirectoryFactory</require>
+  <require>org.nuxeo.directory.mongodb.MongoDBDirectoryFactory</require>
 
-  <extension target="org.nuxeo.directory.MongoDBDirectoryFactory"
+  <extension target="org.nuxeo.directory.mongodb.MongoDBDirectoryFactory"
              point="directories">
 
     <directory name="testContinent">

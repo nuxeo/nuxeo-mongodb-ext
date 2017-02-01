@@ -18,7 +18,7 @@
  *
  */
 
-package org.nuxeo.directory;
+package org.nuxeo.directory.mongodb;
 
 import org.nuxeo.ecm.directory.DefaultDirectoryFactory;
 
