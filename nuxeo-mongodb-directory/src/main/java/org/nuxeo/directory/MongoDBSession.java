@@ -20,16 +20,18 @@
 
 package org.nuxeo.directory;
 
-import com.mongodb.MongoClient;
-import com.mongodb.MongoWriteException;
-import com.mongodb.client.FindIterable;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.result.DeleteResult;
-import com.mongodb.client.result.UpdateResult;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
+
 import org.bson.Document;
 import org.nuxeo.ecm.core.api.DocumentModel;
 import org.nuxeo.ecm.core.api.DocumentModelList;
-import org.nuxeo.ecm.core.api.NuxeoException;
 import org.nuxeo.ecm.core.api.impl.DocumentModelListImpl;
 import org.nuxeo.ecm.core.api.model.Property;
 import org.nuxeo.ecm.core.api.security.SecurityConstants;
@@ -40,18 +42,15 @@ import org.nuxeo.ecm.directory.DirectoryException;
 import org.nuxeo.ecm.directory.EntrySource;
 import org.nuxeo.ecm.directory.PasswordHelper;
 import org.nuxeo.ecm.directory.Session;
-import org.nuxeo.mongodb.ext.core.MongoDBSerializationHelper;
-import org.nuxeo.mongodb.ext.core.MongoDBConnectionHelper;
+import org.nuxeo.mongodb.core.MongoDBConnectionHelper;
+import org.nuxeo.mongodb.core.MongoDBSerializationHelper;
 
-import java.io.Serializable;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.regex.Pattern;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoWriteException;
+import com.mongodb.client.FindIterable;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.result.DeleteResult;
+import com.mongodb.client.result.UpdateResult;
 
 /**
  * MongoDB implementation of a {@link Session}
@@ -76,18 +75,12 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     public MongoDBSession(MongoDBDirectory directory) {
         super(directory);
-        try {
-
             client = MongoDBConnectionHelper.newMongoClient(directory.getDescriptor().getServerUrl());
             dbName = directory.getDescriptor().getDatabaseName();
             directoryName = directory.getName();
             schemaName = directory.getSchema();
             substringMatchType = directory.getDescriptor().getSubstringMatchType();
             schemaFieldMap = directory.getSchemaFieldMap();
-
-        } catch (UnknownHostException e) {
-            throw new NuxeoException(e);
-        }
     }
 
     @Override

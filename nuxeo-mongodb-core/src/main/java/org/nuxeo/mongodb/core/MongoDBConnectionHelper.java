@@ -18,14 +18,10 @@
  *     Kevin Leturc
  *     Funsho David
  */
-package org.nuxeo.mongodb.ext.core;
+package org.nuxeo.mongodb.core;
 
-import java.net.UnknownHostException;
 import java.util.stream.StreamSupport;
 
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.MongoIterable;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -36,6 +32,9 @@ import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoClientURI;
 import com.mongodb.ServerAddress;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.MongoIterable;
 
 /**
  * Helper for connection to the MongoDB server
@@ -62,7 +61,7 @@ public class MongoDBConnectionHelper {
      * @param server the server url
      * @return the MongoDB client
      */
-    public static MongoClient newMongoClient(String server) throws UnknownHostException {
+    public static MongoClient newMongoClient(String server) {
         if (StringUtils.isBlank(server)) {
             throw new NuxeoException("Missing <server> in MongoDB repository descriptor");
         }
@@ -89,36 +88,34 @@ public class MongoDBConnectionHelper {
     }
 
     /**
-     * Retrieve a collection from the MongoDB server
-     * 
-     * @param mongoClient the Mongo client
-     * @param dbname the database name
-     * @param collection the collection name
-     * @return the collection
+     * @return a database representing the specified database
      */
-    public static MongoCollection<Document> getCollection(MongoClient mongoClient, String dbname, String collection) {
+    public static MongoDatabase getDatabase(MongoClient mongoClient, String dbname) {
         if (StringUtils.isBlank(dbname)) {
             dbname = DB_DEFAULT;
         }
-        MongoDatabase db = mongoClient.getDatabase(dbname);
+        return mongoClient.getDatabase(dbname);
+    }
+
+    /**
+     * Retrieve a collection from the MongoDB server
+     */
+    public static MongoCollection<Document> getCollection(MongoClient mongoClient, String dbname, String collection) {
+        MongoDatabase db = getDatabase(mongoClient, dbname);
         return db.getCollection(collection);
     }
 
     /**
      * Check if the collection exists and if it is not empty
-     * 
+     *
      * @param mongoClient the Mongo client
      * @param dbname the database name
      * @param collection the collection name
      * @return true if the collection exists and not empty, false otherwise
      */
     public static boolean hasCollection(MongoClient mongoClient, String dbname, String collection) {
-        if (StringUtils.isBlank(dbname)) {
-            dbname = DB_DEFAULT;
-        }
-        MongoIterable<String> collections = mongoClient.getDatabase(dbname).listCollectionNames();
+        MongoIterable<String> collections = getDatabase(mongoClient, dbname).listCollectionNames();
         boolean found = StreamSupport.stream(collections.spliterator(), false).anyMatch(collection::equals);
         return found && getCollection(mongoClient, dbname, collection).count() > 0;
     }
-
 }

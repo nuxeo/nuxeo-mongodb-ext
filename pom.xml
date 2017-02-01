@@ -16,6 +16,7 @@
 
   <modules>
     <module>nuxeo-mongodb-core</module>
+    <module>nuxeo-mongodb-seqgen</module>
     <module>nuxeo-mongodb-audit</module>
     <module>nuxeo-mongodb-directory</module>
   </modules>
@@ -31,6 +32,12 @@
 
       <dependency>
         <groupId>org.nuxeo.ecm.mongodb.ext</groupId>
+        <artifactId>nuxeo-mongodb-seqgen</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.nuxeo.ecm.mongodb.ext</groupId>
         <artifactId>nuxeo-mongodb-audit</artifactId>
         <version>${project.version}</version>
       </dependency>
@@ -39,6 +46,14 @@
         <groupId>org.nuxeo.ecm.mongodb.ext</groupId>
         <artifactId>nuxeo-mongodb-directory</artifactId>
         <version>${project.version}</version>
+      </dependency>
+
+      <!-- Test dependencies -->
+      <dependency>
+        <groupId>org.nuxeo.ecm.mongodb.ext</groupId>
+        <artifactId>nuxeo-mongodb-core</artifactId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
       </dependency>
 
     </dependencies>

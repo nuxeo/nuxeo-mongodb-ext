@@ -18,23 +18,20 @@
  *
  */
 
-import org.junit.After;
-import org.junit.Before;
-import org.nuxeo.directory.MongoDBSession;
-import org.nuxeo.ecm.core.api.DocumentModel;
-import org.nuxeo.ecm.core.test.CoreFeature;
-import org.nuxeo.ecm.core.test.annotations.Granularity;
-import org.nuxeo.ecm.core.test.annotations.RepositoryConfig;
-import org.nuxeo.ecm.directory.api.DirectoryService;
-import org.nuxeo.runtime.api.Framework;
-import org.nuxeo.runtime.test.runner.Deploy;
-
-import javax.inject.Inject;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.Assume.assumeTrue;
+import org.junit.After;
+import org.nuxeo.directory.MongoDBSession;
+import org.nuxeo.ecm.core.api.DocumentModel;
+import org.nuxeo.ecm.core.test.annotations.Granularity;
+import org.nuxeo.ecm.core.test.annotations.RepositoryConfig;
+import org.nuxeo.ecm.directory.api.DirectoryService;
+import org.nuxeo.mongodb.core.IgnoreNoMongoDB;
+import org.nuxeo.runtime.api.Framework;
+import org.nuxeo.runtime.test.runner.ConditionalIgnoreRule;
+import org.nuxeo.runtime.test.runner.Deploy;
 
 /**
  * @since 9.1
@@ -42,6 +39,7 @@ import static org.junit.Assume.assumeTrue;
 @RepositoryConfig(cleanup = Granularity.METHOD)
 @Deploy({ "org.nuxeo.directory.mongodb", "org.nuxeo.ecm.directory", "org.nuxeo.ecm.directory.api",
         "org.nuxeo.ecm.directory.types.contrib" })
+@ConditionalIgnoreRule.Ignore(condition = IgnoreNoMongoDB.class, cause = "Needs a MongoDB server!")
 public abstract class MongoDBDirectoryTestCase {
 
     protected static final String CONTINENT_DIRECTORY = "testContinent";
@@ -59,14 +57,6 @@ public abstract class MongoDBDirectoryTestCase {
         testContinent.put("label", "label.directories.continent.europe");
         testContinent.put("obsolete", 0);
         testContinent.put("ordering", 0);
-    }
-
-    @Inject
-    protected CoreFeature coreFeature;
-
-    @Before
-    public void setup() {
-        assumeTrue(coreFeature.getStorageConfiguration().isDBSMongoDB());
     }
 
     @After

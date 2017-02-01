@@ -7,14 +7,18 @@
     <version>8.10-HF01-SNAPSHOT</version>
   </parent>
 
-  <artifactId>nuxeo-mongodb-core</artifactId>
-  <name>Nuxeo MongoDB Extension Core</name>
+  <artifactId>nuxeo-mongodb-seqgen</artifactId>
+  <name>Nuxeo MongoDB Extension Sequence Generator</name>
 
   <dependencies>
 
     <dependency>
-      <groupId>org.nuxeo.ecm.core</groupId>
-      <artifactId>nuxeo-core-storage-mongodb</artifactId>
+      <groupId>org.nuxeo.ecm.mongodb.ext</groupId>
+      <artifactId>nuxeo-mongodb-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.nuxeo.ecm.platform</groupId>
+      <artifactId>nuxeo-platform-uidgen-core</artifactId>
     </dependency>
 
     <!-- Test dependencies -->
@@ -28,31 +32,13 @@
       <artifactId>nuxeo-core-test</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.nuxeo.ecm.mongodb.ext</groupId>
+      <artifactId>nuxeo-mongodb-core</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
 
   </dependencies>
-
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <executions>
-          <execution>
-            <configuration>
-              <archive>
-                <manifestFile>
-                  src/test/resources/META-INF/MANIFEST.MF
-                </manifestFile>
-              </archive>
-            </configuration>
-            <goals>
-              <goal>test-jar</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
 
 </project>

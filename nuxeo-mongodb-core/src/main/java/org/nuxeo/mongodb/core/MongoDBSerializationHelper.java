@@ -15,12 +15,10 @@
  *
  * Contributors:
  *     Funsho David
- *  
+ *
  */
 
-package org.nuxeo.mongodb.ext.core;
-
-import org.bson.Document;
+package org.nuxeo.mongodb.core;
 
 import java.io.Serializable;
 import java.lang.reflect.Array;
@@ -33,9 +31,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.bson.Document;
+
 /**
  * Helper for serialization/deserialization of BSON objects
- * 
+ *
  * @since 9.1
  */
 public class MongoDBSerializationHelper {
@@ -48,7 +48,7 @@ public class MongoDBSerializationHelper {
 
     /**
      * Create a BSON object with a single field from a pair key/value
-     * 
+     *
      * @param key the key which corresponds to the field id in the object
      * @param value the value which corresponds to the field value in the object
      * @return the new BSON object
@@ -76,7 +76,7 @@ public class MongoDBSerializationHelper {
 
     /**
      * Cast an object according to its instance
-     * 
+     *
      * @param value the object to transform
      * @return the BSON object
      */
@@ -111,7 +111,7 @@ public class MongoDBSerializationHelper {
 
     /**
      * Create a map from a BSON object
-     * 
+     *
      * @param doc the BSON object to parse
      * @return the new map
      */
