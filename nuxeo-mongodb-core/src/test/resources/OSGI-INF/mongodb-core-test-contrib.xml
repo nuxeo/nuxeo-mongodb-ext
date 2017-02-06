@@ -3,7 +3,7 @@
 
   <require>org.nuxeo.mongodb.core.MongoDBComponent</require>
   <extension target="org.nuxeo.mongodb.core.MongoDBComponent" point="connection">
-    <connection>
+    <connection id="default">
       <server>${nuxeo.test.mongodb.server}</server>
       <dbname>${nuxeo.test.mongodb.dbname}</dbname>
     </connection>

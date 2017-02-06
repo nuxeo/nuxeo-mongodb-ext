@@ -18,21 +18,27 @@
  */
 package org.nuxeo.mongodb.core;
 
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.nuxeo.ecm.core.api.NuxeoException;
 import org.nuxeo.ecm.core.repository.RepositoryService;
 import org.nuxeo.runtime.api.Framework;
 import org.nuxeo.runtime.model.ComponentContext;
 import org.nuxeo.runtime.model.ComponentInstance;
+import org.nuxeo.runtime.model.ContributionFragmentRegistry.FragmentList;
 import org.nuxeo.runtime.model.DefaultComponent;
+import org.nuxeo.runtime.model.SimpleContributionRegistry;
 
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoDatabase;
 
 /**
  * Component used to get a database connection to MongoDB. Don't expose {@link MongoClient} directly, because it's this
- * component which is responsible to create and close it.
+ * component which is responsible for creating and closing it.
  *
  * @since 9.1
  */
@@ -42,17 +48,33 @@ public class MongoDBComponent extends DefaultComponent {
 
     private static final String EP_CONNECTION = "connection";
 
-    private MongoDBConnectionConfig connectionConfig;
+    private static final String DEFAULT_CONNECTION_ID = "default";
 
-    private MongoClient client;
+    private final MongoDBConnectionConfigRegistry registry = new MongoDBConnectionConfigRegistry();
+
+    private final Map<String, MongoClient> clients = new ConcurrentHashMap<>();
 
     @Override
     public void registerContribution(Object contribution, String extensionPoint, ComponentInstance contributor) {
         switch (extensionPoint) {
         case EP_CONNECTION:
-            connectionConfig = (MongoDBConnectionConfig) contribution;
-            log.info("Registering connection configuration: " + connectionConfig + ", loaded from "
-                    + contributor.getName());
+            registry.addContribution((MongoDBConnectionConfig) contribution);
+            log.info(
+                    "Registering connection configuration: " + contribution + ", loaded from " + contributor.getName());
+            break;
+        default:
+            throw new IllegalStateException("Invalid EP: " + extensionPoint);
+        }
+    }
+
+    @Override
+    public void unregisterContribution(Object contribution, String extensionPoint, ComponentInstance contributor) {
+        switch (extensionPoint) {
+        case EP_CONNECTION:
+            MongoDBConnectionConfig config = (MongoDBConnectionConfig) contribution;
+            log.info("Unregistering connection configuration: " + config);
+            clients.remove(config.getId()).close();
+            registry.removeContribution(config);
             break;
         default:
             throw new IllegalStateException("Invalid EP: " + extensionPoint);
@@ -62,13 +84,23 @@ public class MongoDBComponent extends DefaultComponent {
     @Override
     public void applicationStarted(ComponentContext context) {
         log.info("Activate MongoDB component");
-        client = MongoDBConnectionHelper.newMongoClient(connectionConfig.getServer());
+        for (FragmentList<MongoDBConnectionConfig> fragment : registry.getFragments()) {
+            MongoDBConnectionConfig conf = fragment.object;
+            log.debug("Initializing MongoClient with id=" + conf.getId());
+            MongoClient client = MongoDBConnectionHelper.newMongoClient(conf.getServer());
+            clients.put(conf.getId(), client);
+        }
     }
 
     @Override
     public void deactivate(ComponentContext context) {
-        if (client != null) {
+        Iterator<Entry<String, MongoClient>> it = clients.entrySet().iterator();
+        while (it.hasNext()) {
+            Entry<String, MongoClient> entry = it.next();
+            log.debug("Closing MongoClient with id=" + entry.getKey());
+            MongoClient client = entry.getValue();
             client.close();
+            it.remove();
         }
     }
 
@@ -80,14 +112,43 @@ public class MongoDBComponent extends DefaultComponent {
     }
 
     /**
-     * @return the database configured by {@link MongoDBConnectionConfig}.
+     * @param id the connection id to retrieve.
+     * @return the database configured by {@link MongoDBConnectionConfig} for the input id, or the default one if it
+     *         doesn't exist
      */
-    public MongoDatabase getDatabase() {
+    public MongoDatabase getDatabase(String id) {
+        MongoDBConnectionConfig config = registry.getCurrentContribution(id);
+        MongoClient client = clients.get(id);
         if (client == null) {
-            throw new NuxeoException(
-                    "You need a connection contribution to MongoDBComponent in order to get a database connection");
+            config = registry.getCurrentContribution(DEFAULT_CONNECTION_ID);
+            client = clients.get(DEFAULT_CONNECTION_ID);
         }
-        return MongoDBConnectionHelper.getDatabase(client, connectionConfig.getDbname());
+        return MongoDBConnectionHelper.getDatabase(client, config.getDbname());
+    }
+
+    /**
+     * @return all configured databases
+     */
+    public Iterable<MongoDatabase> getDatabases() {
+        return () -> clients.entrySet()
+                            .stream()
+                            .map(e -> MongoDBConnectionHelper.getDatabase(e.getValue(),
+                                    registry.getCurrentContribution(e.getKey()).getDbname()))
+                            .iterator();
+    }
+
+    private static class MongoDBConnectionConfigRegistry extends SimpleContributionRegistry<MongoDBConnectionConfig> {
+
+        @Override
+        public String getContributionId(MongoDBConnectionConfig contrib) {
+            return contrib.getId();
+        }
+
+        @Override
+        public MongoDBConnectionConfig getCurrentContribution(String id) {
+            return super.getCurrentContribution(id);
+        }
+
     }
 
 }

@@ -33,11 +33,18 @@ public class MongoDBConnectionConfig implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    @XNode("@id")
+    private String id;
+
     @XNode("server")
     private String server;
 
     @XNode("dbname")
     private String dbname;
+
+    public String getId() {
+        return id;
+    }
 
     public String getServer() {
         return server;

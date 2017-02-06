@@ -34,18 +34,23 @@ import com.mongodb.client.model.FindOneAndUpdateOptions;
 import com.mongodb.client.model.Updates;
 
 /**
- * MongoDB implementation of {@link UIDSequencer}.<br />
+ * MongoDB implementation of {@link UIDSequencer}.
+ * <p>
  * We use MongoDB upsert feature to provide a sequencer.
  *
  * @since 9.1
  */
 public class MongoDBUIDSequencer extends AbstractUIDSequencer {
 
+    public static final String SEQUENCE_DATABASE_ID = "sequence";
+
     public static final String COLLECTION_NAME_PROPERTY = "nuxeo.mongodb.seqgen.collection.name";
 
     public static final String DEFAULT_COLLECTION_NAME = "sequence";
 
     public static final Long ONE = 1L;
+
+    public static final String SEQUENCE_VALUE_FIELD = "sequence";
 
     private MongoCollection<Document> coll;
 
@@ -64,7 +69,7 @@ public class MongoDBUIDSequencer extends AbstractUIDSequencer {
             MongoDBComponent mongoComponent = (MongoDBComponent) Framework.getRuntime().getComponent(
                     "org.nuxeo.mongodb.core.MongoDBComponent");
             // Get database
-            MongoDatabase database = mongoComponent.getDatabase();
+            MongoDatabase database = mongoComponent.getDatabase(SEQUENCE_DATABASE_ID);
             // Get collection
             coll = database.getCollection(collName);
         }
@@ -80,7 +85,7 @@ public class MongoDBUIDSequencer extends AbstractUIDSequencer {
     public long getNextLong(String key) {
         FindOneAndUpdateOptions options = new FindOneAndUpdateOptions().upsert(true);
         Bson filter = Filters.eq(MongoDBSerializationHelper.MONGODB_ID, key);
-        Bson update = Updates.combine(Updates.inc("sequence", ONE),
+        Bson update = Updates.combine(Updates.inc(SEQUENCE_VALUE_FIELD, ONE),
                 Updates.setOnInsert(MongoDBSerializationHelper.MONGODB_ID, key));
         Document sequence = getCollection().findOneAndUpdate(filter, update, options);
         // If sequence is null, then it means we just create it - convert null to 1
@@ -88,7 +93,7 @@ public class MongoDBUIDSequencer extends AbstractUIDSequencer {
             return 1L;
         }
         // As we retrieve the document before the update we need to add 1 manually
-        return (long) MongoDBSerializationHelper.bsonToFieldMap(sequence).get("sequence") + 1;
+        return (long) MongoDBSerializationHelper.bsonToFieldMap(sequence).get(SEQUENCE_VALUE_FIELD) + 1;
     }
 
     @Override

@@ -40,7 +40,6 @@ import org.nuxeo.runtime.test.runner.SimpleFeature;
 import org.osgi.framework.Bundle;
 
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
 
 /**
  * @since 9.1
@@ -74,15 +73,16 @@ public class MongoDBComponentFeature extends SimpleFeature {
         MongoDBComponent mongoComponent = (MongoDBComponent) Framework.getRuntime().getComponent(
                 "org.nuxeo.mongodb.core.MongoDBComponent");
         // Get database
-        MongoDatabase database = mongoComponent.getDatabase();
-        for (String collName : database.listCollections().map(doc -> doc.get("name").toString())) {
-            // Filter out collections used by repositories (eg: 'default' and 'default.counters')
-            if (repositoryNames.stream().anyMatch(collName::startsWith)) {
-                continue;
+        mongoComponent.getDatabases().forEach(database -> {
+            for (String collName : database.listCollectionNames()) {
+                // Filter out collections used by repositories (eg: 'default' and 'default.counters')
+                if (repositoryNames.stream().anyMatch(collName::startsWith)) {
+                    continue;
+                }
+                MongoCollection<Document> collection = database.getCollection(collName);
+                collection.drop();
             }
-            MongoCollection<Document> collection = database.getCollection(collName);
-            collection.drop();
-        }
+        });
     }
 
 }

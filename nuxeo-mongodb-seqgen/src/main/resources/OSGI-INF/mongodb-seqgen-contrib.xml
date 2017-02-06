@@ -2,8 +2,8 @@
 <component name="org.nuxeo.mongodb.seqgen.contrib">
 
   <documentation>
-    MongoDB Audit Sesuence Generator uses MongoDBComponent. MongoDBComponent should be configured in order to have
-    sequence generator working with MongoDB.
+    MongoDB Audit Sequence Generator uses MongoDBComponent. By default, if no MongoDB connection with id 'sequence'
+    exists, we will use the 'default' one.
 
     You could override the collection name used to store sequence by contributing to ConfigurationService like this:
     <code>

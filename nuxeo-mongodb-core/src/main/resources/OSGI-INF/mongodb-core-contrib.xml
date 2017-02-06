@@ -21,4 +21,11 @@
     <object class="org.nuxeo.mongodb.core.MongoDBConnectionConfig" />
   </extension-point>
 
+  <extension target="org.nuxeo.mongodb.core.MongoDBComponent" point="connection">
+    <connection id="default">
+      <server>${nuxeo.mongodb.server}</server>
+      <dbname>${nuxeo.mongodb.dbname}</dbname>
+    </connection>
+  </extension>
+
 </component>
