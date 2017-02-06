@@ -18,6 +18,8 @@
  */
 package org.nuxeo.mongodb.seqgen;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.nuxeo.ecm.core.uidgen.AbstractUIDSequencer;
@@ -27,10 +29,12 @@ import org.nuxeo.mongodb.core.MongoDBSerializationHelper;
 import org.nuxeo.runtime.api.Framework;
 import org.nuxeo.runtime.services.config.ConfigurationService;
 
+import com.mongodb.MongoWriteException;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.FindOneAndUpdateOptions;
+import com.mongodb.client.model.ReturnDocument;
 import com.mongodb.client.model.Updates;
 
 /**
@@ -48,9 +52,11 @@ public class MongoDBUIDSequencer extends AbstractUIDSequencer {
 
     public static final String DEFAULT_COLLECTION_NAME = "sequence";
 
-    public static final Long ONE = 1L;
+    public static final Long ONE = Long.valueOf(1L);
 
     public static final String SEQUENCE_VALUE_FIELD = "sequence";
+
+    private static final Log log = LogFactory.getLog(MongoDBUIDSequencer.class);
 
     private MongoCollection<Document> coll;
 
@@ -83,17 +89,26 @@ public class MongoDBUIDSequencer extends AbstractUIDSequencer {
 
     @Override
     public long getNextLong(String key) {
-        FindOneAndUpdateOptions options = new FindOneAndUpdateOptions().upsert(true);
+        FindOneAndUpdateOptions options = new FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER);
         Bson filter = Filters.eq(MongoDBSerializationHelper.MONGODB_ID, key);
-        Bson update = Updates.combine(Updates.inc(SEQUENCE_VALUE_FIELD, ONE),
-                Updates.setOnInsert(MongoDBSerializationHelper.MONGODB_ID, key));
+        Bson update = Updates.inc(SEQUENCE_VALUE_FIELD, ONE);
         Document sequence = getCollection().findOneAndUpdate(filter, update, options);
-        // If sequence is null, then it means we just create it - convert null to 1
+        // If sequence is null, we need to create it
         if (sequence == null) {
-            return 1L;
+            try {
+                sequence = new Document();
+                sequence.put(MongoDBSerializationHelper.MONGODB_ID, key);
+                sequence.put(SEQUENCE_VALUE_FIELD, ONE);
+                getCollection().insertOne(sequence);
+            } catch (MongoWriteException e) {
+                // There was a race condition - just re-run getNextLong
+                if (log.isTraceEnabled()) {
+                    log.trace("There was a race condition during '" + key + "' sequence insertion", e);
+                }
+                return getNextLong(key);
+            }
         }
-        // As we retrieve the document before the update we need to add 1 manually
-        return (long) MongoDBSerializationHelper.bsonToFieldMap(sequence).get(SEQUENCE_VALUE_FIELD) + 1;
+        return ((Long) MongoDBSerializationHelper.bsonToFieldMap(sequence).get(SEQUENCE_VALUE_FIELD)).longValue();
     }
 
     @Override
