@@ -58,7 +58,26 @@ public class TestMongoDBDirectory extends MongoDBDirectoryTestCase {
             DocumentModel docModel = session.createEntry(testContinent);
             assertEquals("europe", docModel.getId());
             assertTrue(session.hasEntry("europe"));
+            assertEquals(0, docModel.getProperty("obsolete").getValue());
+            assertEquals(0, docModel.getProperty("ordering").getValue());
+        }
+    }
 
+    @Test
+    public void testCreateEntryIfSomeParamsMissing() {
+        Map<String, Object> docParams = new HashMap<>(testContinent);
+        docParams.remove("obsolete");
+        docParams.remove("ordering");
+
+        try (Session session = getSession()) {
+            assertNotNull(session);
+
+            DocumentModel docModel = session.createEntry(docParams);
+            assertEquals("europe", docModel.getId());
+            assertTrue(session.hasEntry("europe"));
+            // 'obsolete' and 'ordering' are not defined by user, their values remain as the default ones
+            assertEquals(0L, docModel.getProperty("obsolete").getValue());
+            assertEquals(10_000_000L, docModel.getProperty("ordering").getValue());
         }
     }
 
