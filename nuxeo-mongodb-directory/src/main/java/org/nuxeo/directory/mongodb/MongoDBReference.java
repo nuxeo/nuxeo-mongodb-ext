@@ -21,9 +21,11 @@
 package org.nuxeo.directory.mongodb;
 
 import com.mongodb.MongoWriteException;
+import com.mongodb.client.FindIterable;
+import com.mongodb.client.result.DeleteResult;
+import org.bson.Document;
 import org.nuxeo.common.xmap.annotation.XNode;
 import org.nuxeo.common.xmap.annotation.XObject;
-import org.nuxeo.ecm.core.api.DocumentModelList;
 import org.nuxeo.ecm.core.schema.types.SchemaImpl;
 import org.nuxeo.ecm.core.schema.types.primitives.StringType;
 import org.nuxeo.ecm.directory.AbstractReference;
@@ -39,6 +41,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * @since 9.1
@@ -59,6 +63,11 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
     protected String dataFileName;
 
     private boolean initialized = false;
+
+    @XNode("@field")
+    public void setFieldName(String fieldName) {
+        this.fieldName = fieldName;
+    }
 
     @Override
     @XNode("@directory")
@@ -96,8 +105,15 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
             return;
         }
         try (MongoDBSession session = getMongoDBSession()) {
-            targetIds.forEach(targetId -> addLink(sourceId, targetId, session));
+            addLinks(sourceId, targetIds, session);
         }
+    }
+
+    public void addLinks(String sourceId, List<String> targetIds, MongoDBSession session) throws DirectoryException {
+        if (targetIds == null) {
+            return;
+        }
+        targetIds.forEach(targetId -> addLink(sourceId, targetId, session));
     }
 
     @Override
@@ -106,17 +122,27 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
             return;
         }
         try (MongoDBSession session = getMongoDBSession()) {
-            sourceIds.forEach(sourceId -> addLink(sourceId, targetId, session));
+            addLinks(sourceIds, targetId, session);
         }
+    }
+
+    public void addLinks(List<String> sourceIds, String targetId, MongoDBSession session) throws DirectoryException {
+        if (sourceIds == null) {
+            return;
+        }
+        sourceIds.forEach(sourceId -> addLink(sourceId, targetId, session));
     }
 
     private void addLink(String sourceId, String targetId, MongoDBSession session) throws DirectoryException {
         try {
-            // TODO check for existence
             Map<String, Object> fieldMap = new HashMap<>();
             fieldMap.put(sourceField, sourceId);
             fieldMap.put(targetField, targetId);
-            session.createEntry(collection, MongoDBSerializationHelper.fieldMapToBson(fieldMap));
+            Document newDoc = MongoDBSerializationHelper.fieldMapToBson(fieldMap);
+            if (session.getCollection(collection).count(newDoc) > 0) {
+                return;
+            }
+            session.getCollection(collection).insertOne(newDoc);
         } catch (MongoWriteException e) {
             throw new DirectoryException(e);
         }
@@ -124,51 +150,82 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
 
     @Override
     public void removeLinksForSource(String sourceId) throws DirectoryException {
-        removeLinksFor(sourceField, sourceId);
+        try (MongoDBSession session = getMongoDBSession()) {
+            removeLinksForSource(sourceId, session);
+        }
+    }
+
+    public void removeLinksForSource(String sourceId, MongoDBSession session) {
+        removeLinksFor(sourceField, sourceId, session);
     }
 
     @Override
     public void removeLinksForTarget(String targetId) throws DirectoryException {
-        removeLinksFor(targetField, targetId);
+        try (MongoDBSession session = getMongoDBSession()) {
+            removeLinksFor(targetField, targetId, session);
+        }
     }
 
-    private void removeLinksFor(String field, String value) {
-        try (MongoDBSession session = getMongoDBSession()) {
-            DocumentModelList docsToDelete = session.query(Collections.singletonMap(field, value));
-            docsToDelete.forEach(doc -> session.deleteEntry(collection, doc.getId()));
+    private void removeLinksFor(String field, String value, MongoDBSession session) {
+        try {
+            DeleteResult result = session.getCollection(collection)
+                                         .deleteMany(MongoDBSerializationHelper.fieldMapToBson(field, value));
+            if (!result.wasAcknowledged()) {
+                throw new DirectoryException(
+                        "Error while deleting the entry, the request has not been acknowledged by the server");
+            }
+        } catch (MongoWriteException e) {
+            throw new DirectoryException(e);
         }
     }
 
     @Override
     public List<String> getTargetIdsForSource(String sourceId) throws DirectoryException {
-        return getIdsFor(sourceField, sourceId, targetField);
+        try (MongoDBSession session = getMongoDBSession()) {
+            return getIdsFor(sourceField, sourceId, targetField, session);
+        }
+    }
+
+    public List<String> getTargetIdsForSource(String sourceId, MongoDBSession session) throws DirectoryException {
+        return getIdsFor(sourceField, sourceId, targetField, session);
     }
 
     @Override
     public List<String> getSourceIdsForTarget(String targetId) throws DirectoryException {
-        return getIdsFor(targetField, targetId, sourceField);
+        try (MongoDBSession session = getMongoDBSession()) {
+            return getIdsFor(targetField, targetId, sourceField, session);
+        }
     }
 
-    private List<String> getIdsFor(String queryField, String value, String resultField) {
-        List<String> ids = new ArrayList<>();
-        try (MongoDBSession session = getMongoDBSession()) {
-            DocumentModelList docs = session.query(Collections.singletonMap(queryField, value));
-            docs.forEach(doc -> ids.add((String) doc.getPropertyValue(resultField)));
-        }
+    private List<String> getIdsFor(String queryField, String value, String resultField, MongoDBSession session) {
+        FindIterable<Document> docs = session.getCollection(collection)
+                                             .find(MongoDBSerializationHelper.fieldMapToBson(queryField, value));
+        List<String> ids = StreamSupport.stream(docs.spliterator(), false)
+                                        .map(doc -> doc.getString(resultField))
+                                        .collect(Collectors.toList());
         return ids;
     }
 
     @Override
     public void setTargetIdsForSource(String sourceId, List<String> targetIds) throws DirectoryException {
-        setIdsFor(sourceField, sourceId, targetField, targetIds);
+        try (MongoDBSession session = getMongoDBSession()) {
+            setTargetIdsForSource(sourceId, targetIds, session);
+        }
+    }
+
+    public void setTargetIdsForSource(String sourceId, List<String> targetIds, MongoDBSession session)
+            throws DirectoryException {
+        setIdsFor(sourceField, sourceId, targetField, targetIds, session);
     }
 
     @Override
     public void setSourceIdsForTarget(String targetId, List<String> sourceIds) throws DirectoryException {
-        setIdsFor(targetField, targetId, sourceField, sourceIds);
+        try (MongoDBSession session = getMongoDBSession()) {
+            setIdsFor(targetField, targetId, sourceField, sourceIds, session);
+        }
     }
 
-    private void setIdsFor(String field, String value, String fieldToUpdate, List<String> ids) {
+    private void setIdsFor(String field, String value, String fieldToUpdate, List<String> ids, MongoDBSession session) {
 
         Set<String> idsToAdd = new HashSet<>();
         if (ids != null) {
@@ -176,7 +233,7 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
         }
         List<String> idsToDelete = new ArrayList<>();
 
-        List<String> existingIds = getIdsFor(field, value, fieldToUpdate);
+        List<String> existingIds = getIdsFor(field, value, fieldToUpdate, session);
         for (String id : existingIds) {
             if (idsToAdd.contains(id)) {
                 idsToAdd.remove(id);
@@ -186,10 +243,10 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
         }
 
         if (!idsToDelete.isEmpty()) {
-            idsToDelete.forEach(id -> removeLinksFor(fieldToUpdate, id));
+            idsToDelete.forEach(id -> removeLinksFor(fieldToUpdate, id, session));
         }
 
-        try (MongoDBSession session = getMongoDBSession()) {
+        if (!idsToAdd.isEmpty()) {
             if (sourceField.equals(field)) {
                 idsToAdd.forEach(id -> addLink(field, id, session));
             } else {
