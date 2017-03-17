@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang.StringUtils;
 import org.bson.Document;
 import org.nuxeo.ecm.core.api.DocumentModel;
 import org.nuxeo.ecm.core.api.DocumentModelList;
@@ -111,6 +112,10 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     @Override
     public DocumentModel createEntry(Map<String, Object> fieldMap) throws DirectoryException {
+        return createEntry(directoryName, fieldMap);
+    }
+
+    public DocumentModel createEntry(String collection, Map<String, Object> fieldMap) throws DirectoryException {
         checkPermission(SecurityConstants.WRITE);
         String id = String.valueOf(fieldMap.get(getIdField()));
         if (hasEntry(id)) {
@@ -118,7 +123,10 @@ public class MongoDBSession extends BaseSession implements EntrySource {
         }
         try {
             Document bson = MongoDBSerializationHelper.fieldMapToBson(fieldMap);
-            getCollection().insertOne(bson);
+            if (StringUtils.isBlank(collection)) {
+                collection = directoryName;
+            }
+            getCollection(collection).insertOne(bson);
             DocumentModel docModel = BaseSession.createEntryModel(null, schemaName, id, fieldMap, isReadOnly());
             return docModel;
         } catch (MongoWriteException e) {
@@ -167,10 +175,22 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     @Override
     public void deleteEntry(String id) throws DirectoryException {
+        deleteEntry(directoryName, id);
+    }
+
+    @Override
+    public void deleteEntry(String id, Map<String, String> map) throws DirectoryException {
+        deleteEntry(id);
+    }
+
+    public void deleteEntry(String collection, String id) throws DirectoryException {
         checkPermission(SecurityConstants.WRITE);
         checkDeleteConstraints(id);
         try {
-            DeleteResult result = getCollection().deleteOne(
+            if (StringUtils.isBlank(collection)) {
+                collection = directoryName;
+            }
+            DeleteResult result = getCollection(collection).deleteOne(
                     MongoDBSerializationHelper.fieldMapToBson(getIdField(), id));
             if (!result.wasAcknowledged()) {
                 throw new DirectoryException(
@@ -179,12 +199,6 @@ public class MongoDBSession extends BaseSession implements EntrySource {
         } catch (MongoWriteException e) {
             throw new DirectoryException(e);
         }
-
-    }
-
-    @Override
-    public void deleteEntry(String id, Map<String, String> map) throws DirectoryException {
-        deleteEntry(id);
     }
 
     @Override
@@ -314,9 +328,19 @@ public class MongoDBSession extends BaseSession implements EntrySource {
     }
 
     /**
+     * Retrieve a collection
+     * 
+     * @param collection the collection name
+     * @return the MongoDB collection
+     */
+    public MongoCollection<Document> getCollection(String collection) {
+        return MongoDBConnectionHelper.getCollection(client, dbName, collection);
+    }
+
+    /**
      * Retrieve the collection associated to this directory
      * 
-     * @return the collection
+     * @return the MongoDB collection
      */
     public MongoCollection<Document> getCollection() {
         return MongoDBConnectionHelper.getCollection(client, dbName, directoryName);
