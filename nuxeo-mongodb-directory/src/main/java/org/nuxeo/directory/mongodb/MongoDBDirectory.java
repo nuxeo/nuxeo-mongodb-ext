@@ -46,6 +46,10 @@ public class MongoDBDirectory extends AbstractDirectory {
     public MongoDBDirectory(MongoDBDirectoryDescriptor descriptor) {
         super(descriptor);
 
+        // register the references to other directories
+        addReferences(descriptor.getInverseReferences());
+        addReferences(descriptor.getMongoDBReferences());
+
         // cache parameterization
         cache.setEntryCacheName(descriptor.cacheEntryName);
         cache.setEntryCacheWithoutReferencesName(descriptor.cacheEntryWithoutReferencesName);

@@ -24,15 +24,19 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.bson.Document;
 import org.nuxeo.ecm.core.api.DocumentModel;
 import org.nuxeo.ecm.core.api.DocumentModelList;
+import org.nuxeo.ecm.core.api.PropertyException;
 import org.nuxeo.ecm.core.api.impl.DocumentModelListImpl;
 import org.nuxeo.ecm.core.api.model.Property;
 import org.nuxeo.ecm.core.api.security.SecurityConstants;
@@ -42,6 +46,7 @@ import org.nuxeo.ecm.directory.BaseSession;
 import org.nuxeo.ecm.directory.DirectoryException;
 import org.nuxeo.ecm.directory.EntrySource;
 import org.nuxeo.ecm.directory.PasswordHelper;
+import org.nuxeo.ecm.directory.Reference;
 import org.nuxeo.ecm.directory.Session;
 import org.nuxeo.mongodb.core.MongoDBConnectionHelper;
 import org.nuxeo.mongodb.core.MongoDBSerializationHelper;
@@ -60,6 +65,8 @@ import com.mongodb.client.result.UpdateResult;
  */
 public class MongoDBSession extends BaseSession implements EntrySource {
 
+    private static final Log log = LogFactory.getLog(MongoDBSession.class);
+
     public static final String MONGODB_SET = "$set";
 
     protected MongoClient client;
@@ -74,14 +81,21 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     protected final Map<String, Field> schemaFieldMap;
 
+    protected final String passwordHashAlgorithm;
+
+    protected final boolean autoincrementId;
+
     public MongoDBSession(MongoDBDirectory directory) {
         super(directory);
-            client = MongoDBConnectionHelper.newMongoClient(directory.getDescriptor().getServerUrl());
-            dbName = directory.getDescriptor().getDatabaseName();
-            directoryName = directory.getName();
-            schemaName = directory.getSchema();
-            substringMatchType = directory.getDescriptor().getSubstringMatchType();
-            schemaFieldMap = directory.getSchemaFieldMap();
+        MongoDBDirectoryDescriptor desc = directory.getDescriptor();
+        client = MongoDBConnectionHelper.newMongoClient(desc.getServerUrl());
+        dbName = desc.getDatabaseName();
+        directoryName = directory.getName();
+        schemaName = directory.getSchema();
+        substringMatchType = desc.getSubstringMatchType();
+        schemaFieldMap = directory.getSchemaFieldMap();
+        autoincrementId = desc.isAutoincrementIdField(); //TODO: implement custom mongoDB autoincrement logic
+        passwordHashAlgorithm = desc.passwordHashAlgorithm;
     }
 
     @Override
@@ -121,13 +135,45 @@ public class MongoDBSession extends BaseSession implements EntrySource {
         if (hasEntry(id)) {
             throw new DirectoryException(String.format("Entry with id %s already exists", id));
         }
+        if (fieldMap.get(getPasswordField()) != null) {
+            String password = (String) fieldMap.get(getPasswordField());
+            password = PasswordHelper.hashPassword(password, passwordHashAlgorithm);
+            fieldMap.put(getPasswordField(), password);
+        }
         try {
             Document bson = MongoDBSerializationHelper.fieldMapToBson(fieldMap);
             if (StringUtils.isBlank(collection)) {
                 collection = directoryName;
             }
             getCollection(collection).insertOne(bson);
+
             DocumentModel docModel = BaseSession.createEntryModel(null, schemaName, id, fieldMap, isReadOnly());
+
+            // Add references fields
+            Field schemaIdField = schemaFieldMap.get(getIdField());
+            String idFieldName = schemaIdField.getName().getPrefixedName();
+
+            String sourceId = docModel.getId();
+            for (Reference reference : getDirectory().getReferences()) {
+                String referenceFieldName = schemaFieldMap.get(reference.getFieldName()).getName().getPrefixedName();
+                if (getDirectory().getReferences(reference.getFieldName()).size() > 1) {
+                    log.warn("Directory " + getDirectory().getName() + " cannot create field " + reference.getFieldName()
+                            + " for entry " + fieldMap.get(idFieldName)
+                            + ": this field is associated with more than one reference");
+                    continue;
+                }
+
+                @SuppressWarnings("unchecked")
+                List<String> targetIds = (List<String>) fieldMap.get(referenceFieldName);
+                if (reference instanceof MongoDBReference) {
+                    MongoDBReference mongodbReference = (MongoDBReference) reference;
+                    mongodbReference.addLinks(sourceId, targetIds, this);
+                } else {
+                    reference.addLinks(sourceId, targetIds);
+                }
+            }
+
+            getDirectory().invalidateCaches();
             return docModel;
         } catch (MongoWriteException e) {
             throw new DirectoryException(e);
@@ -138,11 +184,23 @@ public class MongoDBSession extends BaseSession implements EntrySource {
     public void updateEntry(DocumentModel docModel) throws DirectoryException {
         checkPermission(SecurityConstants.WRITE);
         Map<String, Object> fieldMap = new HashMap<>();
+        List<String> referenceFieldList = new LinkedList<>();
 
         for (String fieldName : schemaFieldMap.keySet()) {
             Property prop = docModel.getPropertyObject(schemaName, fieldName);
+            if (fieldName.equals(getPasswordField()) && StringUtils.isEmpty((String) prop.getValue())) {
+                continue;
+            }
             if (prop != null && prop.isDirty()) {
-                fieldMap.put(prop.getName(), prop.getValue());
+                Serializable value = prop.getValue();
+                if (fieldName.equals(getPasswordField())) {
+                    String password = (String) fieldMap.get(getPasswordField());
+                    value = PasswordHelper.hashPassword(password, passwordHashAlgorithm);
+                }
+                fieldMap.put(prop.getName(), value);
+            }
+            if (getDirectory().isReference(fieldName)) {
+                referenceFieldList.add(fieldName);
             }
         }
 
@@ -166,6 +224,28 @@ public class MongoDBSession extends BaseSession implements EntrySource {
         } catch (MongoWriteException e) {
             throw new DirectoryException(e);
         }
+
+        // update reference fields
+        for (String referenceFieldName : referenceFieldList) {
+            List<Reference> references = directory.getReferences(referenceFieldName);
+            if (references.size() > 1) {
+                // not supported
+                log.warn("Directory " + getDirectory().getName() + " cannot update field " + referenceFieldName
+                        + " for entry " + docModel.getId() + ": this field is associated with more than one reference");
+            } else {
+                Reference reference = references.get(0);
+                @SuppressWarnings("unchecked")
+                List<String> targetIds = (List<String>) docModel.getProperty(schemaName, referenceFieldName);
+                if (reference instanceof MongoDBReference) {
+                    MongoDBReference mongoReference = (MongoDBReference) reference;
+                    mongoReference.setTargetIdsForSource(docModel.getId(), targetIds, this);
+                } else {
+                    reference.setTargetIdsForSource(docModel.getId(), targetIds);
+                }
+            }
+        }
+        getDirectory().invalidateCaches();
+
     }
 
     @Override
@@ -186,6 +266,16 @@ public class MongoDBSession extends BaseSession implements EntrySource {
     public void deleteEntry(String collection, String id) throws DirectoryException {
         checkPermission(SecurityConstants.WRITE);
         checkDeleteConstraints(id);
+
+        for (Reference reference : getDirectory().getReferences()) {
+            if (reference instanceof MongoDBReference) {
+                MongoDBReference mongoDBReference = (MongoDBReference) reference;
+                mongoDBReference.removeLinksForSource(id, this);
+            } else {
+                reference.removeLinksForSource(id);
+            }
+        }
+
         try {
             if (StringUtils.isBlank(collection)) {
                 collection = directoryName;
@@ -199,6 +289,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
         } catch (MongoWriteException e) {
             throw new DirectoryException(e);
         }
+        getDirectory().invalidateCaches();
     }
 
     @Override
@@ -236,9 +327,42 @@ public class MongoDBSession extends BaseSession implements EntrySource {
             results.limit(limit);
         }
         for (Document resultDoc : results) {
+
             // Cast object to document model
             Map<String, Object> fieldMap = MongoDBSerializationHelper.bsonToFieldMap(resultDoc);
-            entries.add(fieldMapToDocumentModel(fieldMap));
+            DocumentModel doc = fieldMapToDocumentModel(fieldMap);
+
+            if (fetchReferences) {
+                Map<String, List<String>> targetIdsMap = new HashMap<>();
+                for (Reference reference : directory.getReferences()) {
+                    List<String> targetIds;
+                    if (reference instanceof MongoDBReference) {
+                        MongoDBReference mongoReference = (MongoDBReference) reference;
+                        targetIds = mongoReference.getTargetIdsForSource(doc.getId(), this);
+                    }
+                    else {
+                        targetIds = reference.getTargetIdsForSource(doc.getId());
+                    }
+                    targetIds = new ArrayList<>(targetIds);
+                    Collections.sort(targetIds);
+                    String fieldName = reference.getFieldName();
+                    if (targetIdsMap.containsKey(fieldName)) {
+                        targetIdsMap.get(fieldName).addAll(targetIds);
+                    } else {
+                        targetIdsMap.put(fieldName, targetIds);
+                    }
+                }
+                for (Map.Entry<String, List<String>> entry : targetIdsMap.entrySet()) {
+                    String fieldName = entry.getKey();
+                    List<String> targetIds = entry.getValue();
+                    try {
+                        doc.setProperty(schemaName, fieldName, targetIds);
+                    } catch (PropertyException e) {
+                        throw new DirectoryException(e);
+                    }
+                }
+            }
+            entries.add(doc);
         }
 
         if (orderBy != null && !orderBy.isEmpty()) {
@@ -343,7 +467,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
      * @return the MongoDB collection
      */
     public MongoCollection<Document> getCollection() {
-        return MongoDBConnectionHelper.getCollection(client, dbName, directoryName);
+        return getCollection(directoryName);
     }
 
     /**
