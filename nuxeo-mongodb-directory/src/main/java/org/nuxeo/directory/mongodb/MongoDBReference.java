@@ -32,6 +32,7 @@ import org.nuxeo.ecm.directory.AbstractReference;
 import org.nuxeo.ecm.directory.BaseDirectoryDescriptor;
 import org.nuxeo.ecm.directory.DirectoryCSVLoader;
 import org.nuxeo.ecm.directory.DirectoryException;
+import org.nuxeo.ecm.directory.Reference;
 import org.nuxeo.mongodb.core.MongoDBSerializationHelper;
 
 import java.util.ArrayList;
@@ -45,6 +46,8 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
+ * MongoDB implementation of a {@link Reference}
+ * 
  * @since 9.1
  */
 @XObject("reference")
@@ -75,30 +78,6 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
         this.targetDirectoryName = targetDirectoryName;
     }
 
-    public String getCollection() {
-        return collection;
-    }
-
-    public void setCollection(String collection) {
-        this.collection = collection;
-    }
-
-    public String getSourceField() {
-        return sourceField;
-    }
-
-    public void setSourceField(String sourceField) {
-        this.sourceField = sourceField;
-    }
-
-    public String getTargetField() {
-        return targetField;
-    }
-
-    public void setTargetField(String targetField) {
-        this.targetField = targetField;
-    }
-
     @Override
     public void addLinks(String sourceId, List<String> targetIds) throws DirectoryException {
         if (targetIds == null) {
@@ -109,6 +88,14 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
         }
     }
 
+    /**
+     * Adds the links between the source id and the target ids
+     * 
+     * @param sourceId the source id
+     * @param targetIds the target ids
+     * @param session the mongoDB session
+     * @throws DirectoryException
+     */
     public void addLinks(String sourceId, List<String> targetIds, MongoDBSession session) throws DirectoryException {
         if (targetIds == null) {
             return;
@@ -122,15 +109,8 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
             return;
         }
         try (MongoDBSession session = getMongoDBSession()) {
-            addLinks(sourceIds, targetId, session);
+            sourceIds.forEach(sourceId -> addLink(sourceId, targetId, session));
         }
-    }
-
-    public void addLinks(List<String> sourceIds, String targetId, MongoDBSession session) throws DirectoryException {
-        if (sourceIds == null) {
-            return;
-        }
-        sourceIds.forEach(sourceId -> addLink(sourceId, targetId, session));
     }
 
     private void addLink(String sourceId, String targetId, MongoDBSession session) throws DirectoryException {
@@ -155,6 +135,12 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
         }
     }
 
+    /**
+     * Removes all the links for a given source id
+     * 
+     * @param sourceId the source id
+     * @param session the mongoDB session
+     */
     public void removeLinksForSource(String sourceId, MongoDBSession session) {
         removeLinksFor(sourceField, sourceId, session);
     }
@@ -186,6 +172,14 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
         }
     }
 
+    /**
+     * Retrieves all target ids associated to the given source id
+     * 
+     * @param sourceId the source id
+     * @param session the mongoDB session
+     * @return the list of target ids
+     * @throws DirectoryException
+     */
     public List<String> getTargetIdsForSource(String sourceId, MongoDBSession session) throws DirectoryException {
         return getIdsFor(sourceField, sourceId, targetField, session);
     }
@@ -213,6 +207,14 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
         }
     }
 
+    /**
+     * Sets all target ids to be associated to the given source id
+     * 
+     * @param sourceId the source id
+     * @param targetIds the target ids
+     * @param session the mongoDB session
+     * @throws DirectoryException
+     */
     public void setTargetIdsForSource(String sourceId, List<String> targetIds, MongoDBSession session)
             throws DirectoryException {
         setIdsFor(sourceField, sourceId, targetField, targetIds, session);
@@ -226,7 +228,6 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
     }
 
     private void setIdsFor(String field, String value, String fieldToUpdate, List<String> ids, MongoDBSession session) {
-
         Set<String> idsToAdd = new HashSet<>();
         if (ids != null) {
             idsToAdd.addAll(ids);
@@ -243,16 +244,27 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
         }
 
         if (!idsToDelete.isEmpty()) {
-            idsToDelete.forEach(id -> removeLinksFor(fieldToUpdate, id, session));
+            if (sourceField.equals(field)) {
+                idsToDelete.forEach(id -> removeLink(value, id, session));
+            } else {
+                idsToDelete.forEach(id -> removeLink(id, value, session));
+            }
         }
 
         if (!idsToAdd.isEmpty()) {
             if (sourceField.equals(field)) {
-                idsToAdd.forEach(id -> addLink(field, id, session));
+                idsToAdd.forEach(id -> addLink(value, id, session));
             } else {
-                idsToAdd.forEach(id -> addLink(id, field, session));
+                idsToAdd.forEach(id -> addLink(id, value, session));
             }
         }
+    }
+
+    private void removeLink(String sourceId, String targetId, MongoDBSession session) {
+        Map<String, Object> fieldMap = new HashMap<>();
+        fieldMap.put(sourceField, sourceId);
+        fieldMap.put(targetField, targetId);
+        session.getCollection(collection).deleteOne(MongoDBSerializationHelper.fieldMapToBson(fieldMap));
     }
 
     @Override
@@ -269,7 +281,8 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
                 schema.addField(sourceField, StringType.INSTANCE, null, 0, Collections.emptySet());
                 schema.addField(targetField, StringType.INSTANCE, null, 0, Collections.emptySet());
                 DirectoryCSVLoader.loadData(dataFileName, BaseDirectoryDescriptor.DEFAULT_DATA_FILE_CHARACTER_SEPARATOR,
-                        schema, map -> session.createEntry(collection, map));
+                        schema, map -> session.getCollection(collection)
+                                              .insertOne(MongoDBSerializationHelper.fieldMapToBson(map)));
                 initialized = true;
             }
         }

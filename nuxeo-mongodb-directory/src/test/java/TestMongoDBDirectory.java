@@ -52,7 +52,7 @@ public class TestMongoDBDirectory extends MongoDBDirectoryTestCase {
 
     @Test
     public void testCreateEntry() {
-        try (Session session = getSession()) {
+        try (Session session = openSession(CONTINENT_DIR)) {
             assertNotNull(session);
 
             DocumentModel docModel = session.createEntry(testContinent);
@@ -69,7 +69,7 @@ public class TestMongoDBDirectory extends MongoDBDirectoryTestCase {
         docParams.remove("obsolete");
         docParams.remove("ordering");
 
-        try (Session session = getSession()) {
+        try (Session session = openSession(CONTINENT_DIR)) {
             assertNotNull(session);
 
             DocumentModel docModel = session.createEntry(docParams);
@@ -83,7 +83,7 @@ public class TestMongoDBDirectory extends MongoDBDirectoryTestCase {
 
     @Test
     public void testGetEntry() {
-        try (Session session = getSession()) {
+        try (Session session = openSession(CONTINENT_DIR)) {
             assertNotNull(session);
 
             session.createEntry(testContinent);
@@ -97,7 +97,7 @@ public class TestMongoDBDirectory extends MongoDBDirectoryTestCase {
 
     @Test
     public void testUpdateEntry() throws Exception {
-        try (Session session = getSession()) {
+        try (Session session = openSession(CONTINENT_DIR)) {
             assertNotNull(session);
 
             DocumentModel docModel = session.createEntry(testContinent);
@@ -128,7 +128,7 @@ public class TestMongoDBDirectory extends MongoDBDirectoryTestCase {
 
     @Test
     public void testDeleteEntry() {
-        try (Session session = getSession()) {
+        try (Session session = openSession(CONTINENT_DIR)) {
 
             DocumentModel docModel = session.createEntry(testContinent);
             assertTrue(session.hasEntry("europe"));
@@ -141,7 +141,7 @@ public class TestMongoDBDirectory extends MongoDBDirectoryTestCase {
 
     @Test
     public void testQuery() {
-        try (Session session = getSession()) {
+        try (Session session = openSession(CONTINENT_DIR)) {
 
             session.createEntry(testContinent);
 
@@ -162,7 +162,7 @@ public class TestMongoDBDirectory extends MongoDBDirectoryTestCase {
 
     @Test
     public void testQueryFullText() {
-        try (Session session = getSession()) {
+        try (Session session = openSession(CONTINENT_DIR)) {
 
             session.createEntry(testContinent);
 
