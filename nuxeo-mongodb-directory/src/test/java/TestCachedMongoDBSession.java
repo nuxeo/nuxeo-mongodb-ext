@@ -43,7 +43,7 @@ public class TestCachedMongoDBSession extends MongoDBDirectoryTestCase {
 
     @Test
     public void testGetFromCache() throws DirectoryException {
-        try (Session session = getSession()) {
+        try (Session session = openSession(CONTINENT_DIR)) {
             // First call will update cache
             DocumentModel entry = session.getEntry("europe");
             assertNotNull(entry);

@@ -42,7 +42,7 @@ public class TestMongoDBDirectoryWithInitialData extends MongoDBDirectoryTestCas
 
     @Test
     public void testGetEntries() {
-        try (Session session = getSession()) {
+        try (Session session = openSession(CONTINENT_DIR)) {
             assertNotNull(session);
             DocumentModelList entries = session.query(Collections.emptyMap());
             assertEquals(7, entries.size());

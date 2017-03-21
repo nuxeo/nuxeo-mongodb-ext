@@ -23,15 +23,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.After;
+import org.nuxeo.directory.mongodb.MongoDBDirectory;
 import org.nuxeo.directory.mongodb.MongoDBSession;
-import org.nuxeo.ecm.core.api.DocumentModel;
 import org.nuxeo.ecm.core.test.annotations.Granularity;
 import org.nuxeo.ecm.core.test.annotations.RepositoryConfig;
+import org.nuxeo.ecm.directory.Session;
 import org.nuxeo.ecm.directory.api.DirectoryService;
 import org.nuxeo.mongodb.core.IgnoreNoMongoDB;
-import org.nuxeo.runtime.api.Framework;
 import org.nuxeo.runtime.test.runner.ConditionalIgnoreRule;
 import org.nuxeo.runtime.test.runner.Deploy;
+
+import javax.inject.Inject;
 
 /**
  * @since 9.1
@@ -42,17 +44,28 @@ import org.nuxeo.runtime.test.runner.Deploy;
 @ConditionalIgnoreRule.Ignore(condition = IgnoreNoMongoDB.class, cause = "Needs a MongoDB server!")
 public abstract class MongoDBDirectoryTestCase {
 
-    protected static final String CONTINENT_DIRECTORY = "testContinent";
+    protected static final String CONTINENT_DIR = "testContinent";
+
+    protected static final String GROUP_DIR = "groupDirectory";
+
+    protected static final String USER_DIR = "userDirectory";
 
     protected Map<String, Object> testContinent;
 
-    protected MongoDBSession getSession() {
-        DirectoryService directoryService = Framework.getService(DirectoryService.class);
-        return (MongoDBSession) directoryService.open(CONTINENT_DIRECTORY);
+    @Inject
+    protected DirectoryService directoryService;
+
+
+    protected MongoDBDirectory getDirectory(String directory) {
+        return (MongoDBDirectory) directoryService.getDirectory(directory);
+    }
+
+    protected Session openSession(String directory) {
+        return directoryService.open(directory);
     }
 
     protected MongoDBDirectoryTestCase() {
-        this.testContinent = new HashMap<>();
+        testContinent = new HashMap<>();
         testContinent.put("id", "europe");
         testContinent.put("label", "label.directories.continent.europe");
         testContinent.put("obsolete", 0);
@@ -61,11 +74,18 @@ public abstract class MongoDBDirectoryTestCase {
 
     @After
     public void tearDown() {
-        try (MongoDBSession session = getSession()) {
-            for (DocumentModel doc : session.query(Collections.emptyMap())) {
-                session.deleteEntry(doc);
+        purgeDirectory(CONTINENT_DIR);
+        purgeDirectory(GROUP_DIR);
+        purgeDirectory(USER_DIR);
+    }
+
+    private void purgeDirectory(String directory) {
+        MongoDBDirectory dir = getDirectory(directory);
+        if (dir != null) {
+            try (MongoDBSession session = (MongoDBSession) dir.getSession()) {
+                session.query(Collections.emptyMap()).forEach(session::deleteEntry);
+                session.getCollection().drop();
             }
-            session.getCollection().drop();
         }
     }
 }
