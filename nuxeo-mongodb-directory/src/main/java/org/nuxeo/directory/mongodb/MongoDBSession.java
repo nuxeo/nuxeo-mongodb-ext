@@ -94,7 +94,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
         schemaName = directory.getSchema();
         substringMatchType = desc.getSubstringMatchType();
         schemaFieldMap = directory.getSchemaFieldMap();
-        autoincrementId = desc.isAutoincrementIdField(); //TODO: implement custom mongoDB autoincrement logic
+        autoincrementId = desc.isAutoincrementIdField(); // TODO: implement custom mongoDB autoincrement logic
         passwordHashAlgorithm = desc.passwordHashAlgorithm;
     }
 
@@ -126,10 +126,6 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     @Override
     public DocumentModel createEntry(Map<String, Object> fieldMap) throws DirectoryException {
-        return createEntry(directoryName, fieldMap);
-    }
-
-    public DocumentModel createEntry(String collection, Map<String, Object> fieldMap) throws DirectoryException {
         checkPermission(SecurityConstants.WRITE);
         String id = String.valueOf(fieldMap.get(getIdField()));
         if (hasEntry(id)) {
@@ -142,10 +138,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
         }
         try {
             Document bson = MongoDBSerializationHelper.fieldMapToBson(fieldMap);
-            if (StringUtils.isBlank(collection)) {
-                collection = directoryName;
-            }
-            getCollection(collection).insertOne(bson);
+            getCollection().insertOne(bson);
 
             DocumentModel docModel = BaseSession.createEntryModel(null, schemaName, id, fieldMap, isReadOnly());
 
@@ -157,8 +150,8 @@ public class MongoDBSession extends BaseSession implements EntrySource {
             for (Reference reference : getDirectory().getReferences()) {
                 String referenceFieldName = schemaFieldMap.get(reference.getFieldName()).getName().getPrefixedName();
                 if (getDirectory().getReferences(reference.getFieldName()).size() > 1) {
-                    log.warn("Directory " + getDirectory().getName() + " cannot create field " + reference.getFieldName()
-                            + " for entry " + fieldMap.get(idFieldName)
+                    log.warn("Directory " + getDirectory().getName() + " cannot create field "
+                            + reference.getFieldName() + " for entry " + fieldMap.get(idFieldName)
                             + ": this field is associated with more than one reference");
                     continue;
                 }
@@ -255,15 +248,6 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     @Override
     public void deleteEntry(String id) throws DirectoryException {
-        deleteEntry(directoryName, id);
-    }
-
-    @Override
-    public void deleteEntry(String id, Map<String, String> map) throws DirectoryException {
-        deleteEntry(id);
-    }
-
-    public void deleteEntry(String collection, String id) throws DirectoryException {
         checkPermission(SecurityConstants.WRITE);
         checkDeleteConstraints(id);
 
@@ -277,10 +261,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
         }
 
         try {
-            if (StringUtils.isBlank(collection)) {
-                collection = directoryName;
-            }
-            DeleteResult result = getCollection(collection).deleteOne(
+            DeleteResult result = getCollection().deleteOne(
                     MongoDBSerializationHelper.fieldMapToBson(getIdField(), id));
             if (!result.wasAcknowledged()) {
                 throw new DirectoryException(
@@ -290,6 +271,12 @@ public class MongoDBSession extends BaseSession implements EntrySource {
             throw new DirectoryException(e);
         }
         getDirectory().invalidateCaches();
+    }
+
+    @Override
+    public void deleteEntry(String id, Map<String, String> map) throws DirectoryException {
+        // TODO deprecate this as it's unused
+        deleteEntry(id);
     }
 
     @Override
@@ -339,18 +326,13 @@ public class MongoDBSession extends BaseSession implements EntrySource {
                     if (reference instanceof MongoDBReference) {
                         MongoDBReference mongoReference = (MongoDBReference) reference;
                         targetIds = mongoReference.getTargetIdsForSource(doc.getId(), this);
-                    }
-                    else {
+                    } else {
                         targetIds = reference.getTargetIdsForSource(doc.getId());
                     }
                     targetIds = new ArrayList<>(targetIds);
                     Collections.sort(targetIds);
                     String fieldName = reference.getFieldName();
-                    if (targetIdsMap.containsKey(fieldName)) {
-                        targetIdsMap.get(fieldName).addAll(targetIds);
-                    } else {
-                        targetIdsMap.put(fieldName, targetIds);
-                    }
+                    targetIdsMap.computeIfAbsent(fieldName, key -> new ArrayList<>()).addAll(targetIds);
                 }
                 for (Map.Entry<String, List<String>> entry : targetIdsMap.entrySet()) {
                     String fieldName = entry.getKey();
@@ -407,6 +389,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
     @Override
     public void close() throws DirectoryException {
         client.close();
+        getDirectory().removeSession(this);
     }
 
     @Override

@@ -6,7 +6,7 @@
   <require>org.nuxeo.ecm.directory.DirectoryServiceImpl</require>
 
   <documentation>
-    MongoDB-based implementation for NXDirectory
+    MongoDB-based implementation for Directory
   </documentation>
 
   <extension-point name="directories">

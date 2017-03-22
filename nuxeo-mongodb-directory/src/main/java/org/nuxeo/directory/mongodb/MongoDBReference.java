@@ -20,10 +20,13 @@
 
 package org.nuxeo.directory.mongodb;
 
+import com.mongodb.BasicDBList;
+import com.mongodb.BasicDBObject;
 import com.mongodb.MongoWriteException;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.result.DeleteResult;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.nuxeo.common.xmap.annotation.XNode;
 import org.nuxeo.common.xmap.annotation.XObject;
 import org.nuxeo.ecm.core.schema.types.SchemaImpl;
@@ -65,7 +68,7 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
     @XNode("@dataFile")
     protected String dataFileName;
 
-    private boolean initialized = false;
+    private boolean initialized;
 
     @XNode("@field")
     public void setFieldName(String fieldName) {
@@ -100,7 +103,15 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
         if (targetIds == null) {
             return;
         }
-        targetIds.forEach(targetId -> addLink(sourceId, targetId, session));
+        try {
+            List<Document> newDocs = targetIds.stream()
+                                              .map(targetId -> buildDoc(sourceId, targetId))
+                                              .filter(doc -> session.getCollection(collection).count(doc) == 0)
+                                              .collect(Collectors.toList());
+            session.getCollection(collection).insertMany(newDocs);
+        } catch (MongoWriteException e) {
+            throw new DirectoryException(e);
+        }
     }
 
     @Override
@@ -109,20 +120,11 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
             return;
         }
         try (MongoDBSession session = getMongoDBSession()) {
-            sourceIds.forEach(sourceId -> addLink(sourceId, targetId, session));
-        }
-    }
-
-    private void addLink(String sourceId, String targetId, MongoDBSession session) throws DirectoryException {
-        try {
-            Map<String, Object> fieldMap = new HashMap<>();
-            fieldMap.put(sourceField, sourceId);
-            fieldMap.put(targetField, targetId);
-            Document newDoc = MongoDBSerializationHelper.fieldMapToBson(fieldMap);
-            if (session.getCollection(collection).count(newDoc) > 0) {
-                return;
-            }
-            session.getCollection(collection).insertOne(newDoc);
+            List<Document> newDocs = sourceIds.stream()
+                                              .map(sourceId -> buildDoc(sourceId, targetId))
+                                              .filter(doc -> session.getCollection(collection).count(doc) == 0)
+                                              .collect(Collectors.toList());
+            session.getCollection(collection).insertMany(newDocs);
         } catch (MongoWriteException e) {
             throw new DirectoryException(e);
         }
@@ -236,35 +238,38 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
 
         List<String> existingIds = getIdsFor(field, value, fieldToUpdate, session);
         for (String id : existingIds) {
-            if (idsToAdd.contains(id)) {
-                idsToAdd.remove(id);
-            } else {
+            if (!idsToAdd.remove(id)) {
                 idsToDelete.add(id);
             }
         }
 
         if (!idsToDelete.isEmpty()) {
+            BasicDBList list = new BasicDBList();
             if (sourceField.equals(field)) {
-                idsToDelete.forEach(id -> removeLink(value, id, session));
+                list.addAll(idsToDelete.stream().map(id -> buildDoc(value, id)).collect(Collectors.toList()));
             } else {
-                idsToDelete.forEach(id -> removeLink(id, value, session));
+                list.addAll(idsToDelete.stream().map(id -> buildDoc(id, value)).collect(Collectors.toList()));
             }
+            Bson deleteDoc = new BasicDBObject("$or", list);
+            session.getCollection(collection).deleteMany(deleteDoc);
         }
 
         if (!idsToAdd.isEmpty()) {
+            List<Document> list;
             if (sourceField.equals(field)) {
-                idsToAdd.forEach(id -> addLink(value, id, session));
+                list = idsToAdd.stream().map(id -> buildDoc(value, id)).collect(Collectors.toList());
             } else {
-                idsToAdd.forEach(id -> addLink(id, value, session));
+                list = idsToAdd.stream().map(id -> buildDoc(id, value)).collect(Collectors.toList());
             }
+            session.getCollection(collection).insertMany(list);
         }
     }
 
-    private void removeLink(String sourceId, String targetId, MongoDBSession session) {
+    private Document buildDoc(String sourceId, String targetId) {
         Map<String, Object> fieldMap = new HashMap<>();
         fieldMap.put(sourceField, sourceId);
         fieldMap.put(targetField, targetId);
-        session.getCollection(collection).deleteOne(MongoDBSerializationHelper.fieldMapToBson(fieldMap));
+        return MongoDBSerializationHelper.fieldMapToBson(fieldMap);
     }
 
     @Override
@@ -274,17 +279,18 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
     }
 
     protected MongoDBSession getMongoDBSession() throws DirectoryException {
-        if (!initialized && dataFileName != null) {
-            try (MongoDBSession session = (MongoDBSession) getSourceDirectory().getSession()) {
-                // fake schema for DirectoryCSVLoader.loadData
-                SchemaImpl schema = new SchemaImpl(collection, null);
-                schema.addField(sourceField, StringType.INSTANCE, null, 0, Collections.emptySet());
-                schema.addField(targetField, StringType.INSTANCE, null, 0, Collections.emptySet());
-                DirectoryCSVLoader.loadData(dataFileName, BaseDirectoryDescriptor.DEFAULT_DATA_FILE_CHARACTER_SEPARATOR,
-                        schema, map -> session.getCollection(collection)
-                                              .insertOne(MongoDBSerializationHelper.fieldMapToBson(map)));
-                initialized = true;
+        if (!initialized) {
+            if (dataFileName != null) {
+                try (MongoDBSession session = (MongoDBSession) getSourceDirectory().getSession()) {
+                    // fake schema for DirectoryCSVLoader.loadData
+                    SchemaImpl schema = new SchemaImpl(collection, null);
+                    schema.addField(sourceField, StringType.INSTANCE, null, 0, Collections.emptySet());
+                    schema.addField(targetField, StringType.INSTANCE, null, 0, Collections.emptySet());
+                    DirectoryCSVLoader.loadData(dataFileName, BaseDirectoryDescriptor.DEFAULT_DATA_FILE_CHARACTER_SEPARATOR,
+                            schema, map -> session.getCollection(collection).insertOne(MongoDBSerializationHelper.fieldMapToBson(map)));
+                }
             }
+            initialized = true;
         }
         return (MongoDBSession) getSourceDirectory().getSession();
     }
