@@ -19,6 +19,9 @@
 
 package org.nuxeo.directory.mongodb;
 
+import static org.nuxeo.mongodb.core.MongoDBSerializationHelper.MONGODB_ID;
+import static org.nuxeo.mongodb.core.MongoDBSerializationHelper.MONGODB_SEQ;
+
 import org.nuxeo.ecm.core.schema.SchemaManager;
 import org.nuxeo.ecm.core.schema.types.Field;
 import org.nuxeo.ecm.core.schema.types.Schema;
@@ -27,8 +30,10 @@ import org.nuxeo.ecm.directory.Directory;
 import org.nuxeo.ecm.directory.DirectoryCSVLoader;
 import org.nuxeo.ecm.directory.DirectoryException;
 import org.nuxeo.ecm.directory.Session;
+import org.nuxeo.mongodb.core.MongoDBSerializationHelper;
 import org.nuxeo.runtime.api.Framework;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -40,6 +45,8 @@ import java.util.Map;
 public class MongoDBDirectory extends AbstractDirectory {
 
     protected Map<String, Field> schemaFieldMap;
+
+    protected String countersCollectionName;
 
     protected boolean initialized;
 
@@ -55,7 +62,8 @@ public class MongoDBDirectory extends AbstractDirectory {
         cache.setEntryCacheWithoutReferencesName(descriptor.cacheEntryWithoutReferencesName);
         cache.setNegativeCaching(descriptor.negativeCaching);
 
-        initialized = false;
+        countersCollectionName = getName() + ".counters";
+
     }
 
     @Override
@@ -77,6 +85,14 @@ public class MongoDBDirectory extends AbstractDirectory {
         MongoDBSession session = new MongoDBSession(this);
         addSession(session);
 
+        // Initialize counters collection if autoincrement enabled
+        if (descriptor.isAutoincrementIdField() && !session.hasCollection(countersCollectionName)) {
+            Map<String, Object> seq = new HashMap<>();
+            seq.put(MONGODB_ID, getName());
+            seq.put(MONGODB_SEQ, 0L);
+            session.getCollection(countersCollectionName).insertOne(MongoDBSerializationHelper.fieldMapToBson(seq));
+        }
+
         if (!initialized && descriptor.getDataFileName() != null && !session.hasCollection(getName())) {
             DirectoryCSVLoader.loadData(descriptor.getDataFileName(), descriptor.getDataFileCharacterSeparator(),
                     schema, session::createEntry);
@@ -87,5 +103,9 @@ public class MongoDBDirectory extends AbstractDirectory {
 
     public Map<String, Field> getSchemaFieldMap() {
         return schemaFieldMap;
+    }
+
+    public String getCountersCollectionName() {
+        return countersCollectionName;
     }
 }

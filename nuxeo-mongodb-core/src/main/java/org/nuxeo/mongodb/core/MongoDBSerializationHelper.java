@@ -42,6 +42,12 @@ public class MongoDBSerializationHelper {
 
     public static final String MONGODB_ID = "_id";
 
+    public static final String MONGODB_SET = "$set";
+
+    public static final String MONGODB_INC = "$inc";
+
+    public static final String MONGODB_SEQ = "seq";
+
     private MongoDBSerializationHelper() {
         // empty
     }
@@ -53,7 +59,7 @@ public class MongoDBSerializationHelper {
      * @param value the value which corresponds to the field value in the object
      * @return the new BSON object
      */
-    public static Document fieldMapToBson(String key, String value) {
+    public static Document fieldMapToBson(String key, Object value) {
         return fieldMapToBson(Collections.singletonMap(key, value));
     }
 
@@ -82,7 +88,9 @@ public class MongoDBSerializationHelper {
      */
     public static Object valueToBson(Object value) {
         if (value instanceof Map) {
-            return fieldMapToBson((Map<String, Object>) value);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> map = (Map<String, Object>) value;
+            return fieldMapToBson(map);
         } else if (value instanceof List) {
             @SuppressWarnings("unchecked")
             List<Object> values = (List<Object>) value;

@@ -11,7 +11,6 @@
       <schema>vocabulary</schema>
       <serverUrl>${nuxeo.test.mongodb.server}</serverUrl>
       <databaseName>${nuxeo.test.mongodb.dbname}</databaseName>
-      <table>continent</table>
       <dataFile>continent.csv</dataFile>
       <idField>id</idField>
       <createTablePolicy>always</createTablePolicy>

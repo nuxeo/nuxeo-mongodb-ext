@@ -50,6 +50,8 @@ public abstract class MongoDBDirectoryTestCase {
 
     protected static final String USER_DIR = "userDirectory";
 
+    protected static final String TEST_DIR = "testDirectory";
+
     protected Map<String, Object> testContinent;
 
     @Inject
@@ -77,6 +79,7 @@ public abstract class MongoDBDirectoryTestCase {
         purgeDirectory(CONTINENT_DIR);
         purgeDirectory(GROUP_DIR);
         purgeDirectory(USER_DIR);
+        purgeDirectory(TEST_DIR);
     }
 
     private void purgeDirectory(String directory) {

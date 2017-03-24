@@ -20,6 +20,11 @@
 
 package org.nuxeo.directory.mongodb;
 
+import static org.nuxeo.mongodb.core.MongoDBSerializationHelper.MONGODB_ID;
+import static org.nuxeo.mongodb.core.MongoDBSerializationHelper.MONGODB_INC;
+import static org.nuxeo.mongodb.core.MongoDBSerializationHelper.MONGODB_SEQ;
+import static org.nuxeo.mongodb.core.MongoDBSerializationHelper.MONGODB_SET;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,6 +35,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import com.mongodb.client.model.FindOneAndUpdateOptions;
+import com.mongodb.client.model.ReturnDocument;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -67,8 +74,6 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     private static final Log log = LogFactory.getLog(MongoDBSession.class);
 
-    public static final String MONGODB_SET = "$set";
-
     protected MongoClient client;
 
     protected String dbName;
@@ -79,6 +84,8 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     protected SubstringMatchType substringMatchType;
 
+    protected String countersCollectionName;
+    
     protected final Map<String, Field> schemaFieldMap;
 
     protected final String passwordHashAlgorithm;
@@ -91,10 +98,11 @@ public class MongoDBSession extends BaseSession implements EntrySource {
         client = MongoDBConnectionHelper.newMongoClient(desc.getServerUrl());
         dbName = desc.getDatabaseName();
         directoryName = directory.getName();
+        countersCollectionName = directory.getCountersCollectionName();
         schemaName = directory.getSchema();
         substringMatchType = desc.getSubstringMatchType();
         schemaFieldMap = directory.getSchemaFieldMap();
-        autoincrementId = desc.isAutoincrementIdField(); // TODO: implement custom mongoDB autoincrement logic
+        autoincrementId = desc.isAutoincrementIdField(); 
         passwordHashAlgorithm = desc.passwordHashAlgorithm;
     }
 
@@ -127,9 +135,21 @@ public class MongoDBSession extends BaseSession implements EntrySource {
     @Override
     public DocumentModel createEntry(Map<String, Object> fieldMap) throws DirectoryException {
         checkPermission(SecurityConstants.WRITE);
-        String id = String.valueOf(fieldMap.get(getIdField()));
-        if (hasEntry(id)) {
-            throw new DirectoryException(String.format("Entry with id %s already exists", id));
+        String id;
+        if (autoincrementId) {
+            Document filter = MongoDBSerializationHelper.fieldMapToBson(MONGODB_ID, directoryName);
+            Document update = new Document().append(MONGODB_INC,
+                    MongoDBSerializationHelper.fieldMapToBson(MONGODB_SEQ, 1));
+            FindOneAndUpdateOptions options = new FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER);
+            Long longId = getCollection(countersCollectionName).findOneAndUpdate(filter, update, options)
+                                                               .getLong(MONGODB_SEQ);
+            fieldMap.put(getIdField(), longId);
+            id = String.valueOf(longId);
+        } else {
+            id = String.valueOf(fieldMap.get(getIdField()));
+            if (hasEntry(id)) {
+                throw new DirectoryException(String.format("Entry with id %s already exists", id));
+            }
         }
         if (fieldMap.get(getPasswordField()) != null) {
             String password = (String) fieldMap.get(getPasswordField());
