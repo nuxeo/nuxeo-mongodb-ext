@@ -54,7 +54,7 @@ import org.nuxeo.runtime.test.runner.FeaturesRunner;
 import org.nuxeo.runtime.test.runner.LocalDeploy;
 import org.nuxeo.runtime.transaction.TransactionHelper;
 
-@Deploy({ "org.nuxeo.ecm.platform.query.api" })
+@Deploy({ "org.nuxeo.ecm.platform.query.api", "org.nuxeo.admin.center" })
 @RunWith(FeaturesRunner.class)
 @Features(MongoDBAuditFeature.class)
 @LocalDeploy({ "org.nuxeo.mongodb.audit.test:OSGI-INF/mongodb-audit-pageprovider-test-contrib.xml" })
