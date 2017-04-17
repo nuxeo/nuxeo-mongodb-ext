@@ -19,9 +19,14 @@
 
 package org.nuxeo.directory.mongodb;
 
+import static org.nuxeo.ecm.directory.BaseDirectoryDescriptor.CREATE_TABLE_POLICY_ALWAYS;
+import static org.nuxeo.ecm.directory.BaseDirectoryDescriptor.CREATE_TABLE_POLICY_ON_MISSING_COLUMNS;
 import static org.nuxeo.mongodb.core.MongoDBSerializationHelper.MONGODB_ID;
 import static org.nuxeo.mongodb.core.MongoDBSerializationHelper.MONGODB_SEQ;
 
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
+import org.nuxeo.ecm.core.cache.CacheService;
 import org.nuxeo.ecm.core.schema.SchemaManager;
 import org.nuxeo.ecm.core.schema.types.Field;
 import org.nuxeo.ecm.core.schema.types.Schema;
@@ -58,9 +63,27 @@ public class MongoDBDirectory extends AbstractDirectory {
         addReferences(descriptor.getMongoDBReferences());
 
         // cache parameterization
-        cache.setEntryCacheName(descriptor.cacheEntryName);
-        cache.setEntryCacheWithoutReferencesName(descriptor.cacheEntryWithoutReferencesName);
+        String cacheEntryName = descriptor.cacheEntryName;
+        String cacheEntryNameWithoutReferencesName = descriptor.cacheEntryWithoutReferencesName;
+
+        cache.setEntryCacheName(cacheEntryName);
+        cache.setEntryCacheWithoutReferencesName(cacheEntryNameWithoutReferencesName);
         cache.setNegativeCaching(descriptor.negativeCaching);
+
+        // cache fallback
+        CacheService cacheService = Framework.getService(CacheService.class);
+        if (cacheService != null) {
+            if (cacheEntryName == null && descriptor.getCacheMaxSize() != 0) {
+                cache.setEntryCacheName("cache-" + getName());
+                cacheService.registerCache("cache-" + getName(), descriptor.getCacheMaxSize(),
+                        descriptor.getCacheTimeout() / 60);
+            }
+            if (cacheEntryNameWithoutReferencesName == null && descriptor.getCacheMaxSize() != 0) {
+                cache.setEntryCacheWithoutReferencesName("cacheWithoutReference-" + getName());
+                cacheService.registerCache("cacheWithoutReference-" + getName(), descriptor.getCacheMaxSize(),
+                        descriptor.getCacheTimeout() / 60);
+            }
+        }
 
         countersCollectionName = getName() + ".counters";
 
@@ -93,12 +116,52 @@ public class MongoDBDirectory extends AbstractDirectory {
             session.getCollection(countersCollectionName).insertOne(MongoDBSerializationHelper.fieldMapToBson(seq));
         }
 
-        if (!initialized && descriptor.getDataFileName() != null && !session.hasCollection(getName())) {
-            DirectoryCSVLoader.loadData(descriptor.getDataFileName(), descriptor.getDataFileCharacterSeparator(),
-                    schema, session::createEntry);
+        if (!initialized) {
+            String policy = descriptor.getCreateTablePolicy();
+            MongoCollection collection = session.getCollection(getName());
+            boolean dropCollection = false;
+            boolean loadData = false;
+
+            switch (policy) {
+            case CREATE_TABLE_POLICY_ALWAYS:
+                dropCollection = true;
+                loadData = true;
+                break;
+            case CREATE_TABLE_POLICY_ON_MISSING_COLUMNS:
+                if (session.hasCollection(getName())) {
+                    long totalEntries = collection.count();
+                    boolean missingColumns = schema.getFields().stream().map(f -> f.getName().getLocalName()).anyMatch(
+                            fname -> collection.count(Filters.exists(fname, false)) == totalEntries);
+                    if (missingColumns) {
+                        dropCollection = true;
+                        loadData = true;
+                    }
+                } else {
+                    loadData = true;
+                }
+                break;
+            default:
+                if (!session.hasCollection(getName())) {
+                    loadData = true;
+                }
+                break;
+            }
+            if (dropCollection) {
+                collection.drop();
+            }
+            if (loadData) {
+                loadData(schema, session);
+            }
             initialized = true;
         }
         return session;
+    }
+
+    protected void loadData(Schema schema, Session session) {
+        if (descriptor.getDataFileName() != null) {
+            DirectoryCSVLoader.loadData(descriptor.getDataFileName(), descriptor.getDataFileCharacterSeparator(),
+                    schema, session::createEntry);
+        }
     }
 
     public Map<String, Field> getSchemaFieldMap() {
