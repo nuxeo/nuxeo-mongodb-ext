@@ -207,7 +207,8 @@ public class MongoDBSession extends BaseSession implements EntrySource {
             if (prop != null && prop.isDirty()) {
                 Serializable value = prop.getValue();
                 if (fieldName.equals(getPasswordField())) {
-                    value = PasswordHelper.hashPassword((String) value, passwordHashAlgorithm);
+                    String password = (String) fieldMap.get(getPasswordField());
+                    value = PasswordHelper.hashPassword(password, passwordHashAlgorithm);
                 }
                 fieldMap.put(prop.getName(), value);
             }
@@ -448,9 +449,9 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     @Override
     public DocumentModel getEntryFromSource(String id, boolean fetchReferences) throws DirectoryException {
-        DocumentModelList result = query(Collections.singletonMap(getIdField(), id), Collections.emptySet(),
-                Collections.emptyMap(), fetchReferences, 1, -1);
-        return result.isEmpty() ? null : result.get(0);
+        return query(Collections.singletonMap(getIdField(), id), Collections.emptySet(), Collections.emptyMap(),
+                fetchReferences, 1, -1).get(0);
+
     }
 
     /**

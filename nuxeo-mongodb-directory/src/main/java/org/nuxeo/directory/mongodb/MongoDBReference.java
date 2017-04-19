@@ -24,7 +24,6 @@ import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.MongoWriteException;
 import com.mongodb.client.FindIterable;
-import com.mongodb.client.MongoCollection;
 import com.mongodb.client.result.DeleteResult;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -46,7 +45,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -85,6 +83,9 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
 
     @Override
     public void addLinks(String sourceId, List<String> targetIds) throws DirectoryException {
+        if (targetIds == null) {
+            return;
+        }
         try (MongoDBSession session = getMongoDBSession()) {
             addLinks(sourceId, targetIds, session);
         }
@@ -99,22 +100,15 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
      * @throws DirectoryException
      */
     public void addLinks(String sourceId, List<String> targetIds, MongoDBSession session) throws DirectoryException {
-        if (!initialized) {
-            if (dataFileName != null) {
-                initializeSession(session);
-            }
-            initialized = true;
-        }
-        if (targetIds == null || targetIds.isEmpty()) {
+        if (targetIds == null) {
             return;
         }
         try {
-            MongoCollection<Document> coll = session.getCollection(collection);
             List<Document> newDocs = targetIds.stream()
                                               .map(targetId -> buildDoc(sourceId, targetId))
-                                              .filter(doc -> coll.count(doc) == 0)
+                                              .filter(doc -> session.getCollection(collection).count(doc) == 0)
                                               .collect(Collectors.toList());
-            coll.insertMany(newDocs);
+            session.getCollection(collection).insertMany(newDocs);
         } catch (MongoWriteException e) {
             throw new DirectoryException(e);
         }
@@ -122,16 +116,15 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
 
     @Override
     public void addLinks(List<String> sourceIds, String targetId) throws DirectoryException {
-        if (sourceIds == null || sourceIds.isEmpty()) {
+        if (sourceIds == null) {
             return;
         }
         try (MongoDBSession session = getMongoDBSession()) {
-            MongoCollection<Document> coll = session.getCollection(collection);
             List<Document> newDocs = sourceIds.stream()
                                               .map(sourceId -> buildDoc(sourceId, targetId))
-                                              .filter(doc -> coll.count(doc) == 0)
+                                              .filter(doc -> session.getCollection(collection).count(doc) == 0)
                                               .collect(Collectors.toList());
-            coll.insertMany(newDocs);
+            session.getCollection(collection).insertMany(newDocs);
         } catch (MongoWriteException e) {
             throw new DirectoryException(e);
         }
@@ -203,9 +196,10 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
     private List<String> getIdsFor(String queryField, String value, String resultField, MongoDBSession session) {
         FindIterable<Document> docs = session.getCollection(collection)
                                              .find(MongoDBSerializationHelper.fieldMapToBson(queryField, value));
-        return StreamSupport.stream(docs.spliterator(), false)
-                            .map(doc -> doc.getString(resultField))
-                            .collect(Collectors.toList());
+        List<String> ids = StreamSupport.stream(docs.spliterator(), false)
+                                        .map(doc -> doc.getString(resultField))
+                                        .collect(Collectors.toList());
+        return ids;
     }
 
     @Override
@@ -284,28 +278,16 @@ public class MongoDBReference extends AbstractReference implements Cloneable {
         return clone;
     }
 
-    protected void initializeSession(MongoDBSession session) {
-        // fake schema for DirectoryCSVLoader.loadData
-        SchemaImpl schema = new SchemaImpl(collection, null);
-        schema.addField(sourceField, StringType.INSTANCE, null, 0, Collections.emptySet());
-        schema.addField(targetField, StringType.INSTANCE, null, 0, Collections.emptySet());
-
-        Consumer<Map<String, Object>> loader = map -> {
-            Document doc = MongoDBSerializationHelper.fieldMapToBson(map);
-            MongoCollection<Document> coll = session.getCollection(collection);
-            if (coll.count(doc) == 0) {
-                coll.insertOne(doc);
-            }
-        };
-        DirectoryCSVLoader.loadData(dataFileName, BaseDirectoryDescriptor.DEFAULT_DATA_FILE_CHARACTER_SEPARATOR, schema,
-                loader);
-    }
-
     protected MongoDBSession getMongoDBSession() throws DirectoryException {
         if (!initialized) {
             if (dataFileName != null) {
                 try (MongoDBSession session = (MongoDBSession) getSourceDirectory().getSession()) {
-                    initializeSession(session);
+                    // fake schema for DirectoryCSVLoader.loadData
+                    SchemaImpl schema = new SchemaImpl(collection, null);
+                    schema.addField(sourceField, StringType.INSTANCE, null, 0, Collections.emptySet());
+                    schema.addField(targetField, StringType.INSTANCE, null, 0, Collections.emptySet());
+                    DirectoryCSVLoader.loadData(dataFileName, BaseDirectoryDescriptor.DEFAULT_DATA_FILE_CHARACTER_SEPARATOR,
+                            schema, map -> session.getCollection(collection).insertOne(MongoDBSerializationHelper.fieldMapToBson(map)));
                 }
             }
             initialized = true;
