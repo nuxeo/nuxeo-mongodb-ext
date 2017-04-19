@@ -40,7 +40,7 @@ import javax.inject.Inject;
  */
 @RepositoryConfig(cleanup = Granularity.METHOD)
 @Deploy({ "org.nuxeo.directory.mongodb", "org.nuxeo.ecm.directory", "org.nuxeo.ecm.directory.api",
-        "org.nuxeo.ecm.directory.types.contrib" })
+        "org.nuxeo.ecm.directory.types.contrib", "org.nuxeo.ecm.directory.sql" })
 @ConditionalIgnoreRule.Ignore(condition = IgnoreNoMongoDB.class, cause = "Needs a MongoDB server!")
 public abstract class MongoDBDirectoryTestCase {
 
