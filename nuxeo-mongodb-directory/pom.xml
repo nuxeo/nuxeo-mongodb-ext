@@ -48,11 +48,6 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.nuxeo.ecm.platform</groupId>
-      <artifactId>nuxeo-platform-directory-sql</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>org.nuxeo.ecm.mongodb.ext</groupId>
       <artifactId>nuxeo-mongodb-core</artifactId>
       <type>test-jar</type>
