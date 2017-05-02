@@ -17,7 +17,6 @@
     <module>nuxeo-mongodb-core</module>
     <module>nuxeo-mongodb-seqgen</module>
     <module>nuxeo-mongodb-audit</module>
-    <module>nuxeo-mongodb-directory</module>
   </modules>
 
   <repositories>
