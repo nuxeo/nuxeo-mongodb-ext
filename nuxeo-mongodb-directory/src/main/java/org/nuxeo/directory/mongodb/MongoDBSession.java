@@ -67,7 +67,7 @@ import com.mongodb.client.result.UpdateResult;
 
 /**
  * MongoDB implementation of a {@link Session}
- * 
+ *
  * @since 9.1
  */
 public class MongoDBSession extends BaseSession implements EntrySource {
@@ -85,7 +85,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
     protected SubstringMatchType substringMatchType;
 
     protected String countersCollectionName;
-    
+
     protected final Map<String, Field> schemaFieldMap;
 
     protected final String passwordHashAlgorithm;
@@ -102,7 +102,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
         schemaName = directory.getSchema();
         substringMatchType = desc.getSubstringMatchType();
         schemaFieldMap = directory.getSchemaFieldMap();
-        autoincrementId = desc.isAutoincrementIdField(); 
+        autoincrementId = desc.isAutoincrementIdField();
         passwordHashAlgorithm = desc.passwordHashAlgorithm;
     }
 
@@ -455,7 +455,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     /**
      * Retrieve a collection
-     * 
+     *
      * @param collection the collection name
      * @return the MongoDB collection
      */
@@ -465,7 +465,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     /**
      * Retrieve the collection associated to this directory
-     * 
+     *
      * @return the MongoDB collection
      */
     public MongoCollection<Document> getCollection() {
@@ -474,7 +474,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     /**
      * Check if the MongoDB server has the collection
-     * 
+     *
      * @param collection the collection name
      * @return true if the server has the collection, false otherwise
      */
