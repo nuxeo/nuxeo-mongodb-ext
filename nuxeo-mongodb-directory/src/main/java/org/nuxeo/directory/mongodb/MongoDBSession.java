@@ -104,6 +104,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
         schemaFieldMap = directory.getSchemaFieldMap();
         autoincrementId = desc.isAutoincrementIdField();
         passwordHashAlgorithm = desc.passwordHashAlgorithm;
+        permissions = desc.permissions;
     }
 
     @Override
