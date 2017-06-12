@@ -136,6 +136,8 @@ public class MongoDBSession extends BaseSession implements EntrySource {
     @Override
     public DocumentModel createEntry(Map<String, Object> fieldMap) throws DirectoryException {
         checkPermission(SecurityConstants.WRITE);
+
+        String idFieldName = schemaFieldMap.get(getIdField()).getName().getPrefixedName();
         String id;
         if (autoincrementId) {
             Document filter = MongoDBSerializationHelper.fieldMapToBson(MONGODB_ID, directoryName);
@@ -144,10 +146,10 @@ public class MongoDBSession extends BaseSession implements EntrySource {
             FindOneAndUpdateOptions options = new FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER);
             Long longId = getCollection(countersCollectionName).findOneAndUpdate(filter, update, options)
                                                                .getLong(MONGODB_SEQ);
-            fieldMap.put(getIdField(), longId);
+            fieldMap.put(idFieldName, longId);
             id = String.valueOf(longId);
         } else {
-            id = String.valueOf(fieldMap.get(getIdField()));
+            id = String.valueOf(fieldMap.get(idFieldName));
             if (hasEntry(id)) {
                 throw new DirectoryException(String.format("Entry with id %s already exists", id));
             }
@@ -164,9 +166,6 @@ public class MongoDBSession extends BaseSession implements EntrySource {
             DocumentModel docModel = BaseSession.createEntryModel(null, schemaName, id, fieldMap, isReadOnly());
 
             // Add references fields
-            Field schemaIdField = schemaFieldMap.get(getIdField());
-            String idFieldName = schemaIdField.getName().getPrefixedName();
-
             String sourceId = docModel.getId();
             for (Reference reference : getDirectory().getReferences()) {
                 String referenceFieldName = schemaFieldMap.get(reference.getFieldName()).getName().getPrefixedName();
@@ -217,8 +216,9 @@ public class MongoDBSession extends BaseSession implements EntrySource {
             }
         }
 
+        String idFieldName = schemaFieldMap.get(getIdField()).getName().getPrefixedName();
         String id = docModel.getId();
-        Document bson = MongoDBSerializationHelper.fieldMapToBson(getIdField(), id);
+        Document bson = MongoDBSerializationHelper.fieldMapToBson(idFieldName, id);
 
         Document props = new Document();
         props.append(MONGODB_SET, MongoDBSerializationHelper.fieldMapToBson(fieldMap));
@@ -281,8 +281,8 @@ public class MongoDBSession extends BaseSession implements EntrySource {
         }
 
         try {
-            DeleteResult result = getCollection().deleteOne(
-                    MongoDBSerializationHelper.fieldMapToBson(getIdField(), id));
+            String idFieldName = schemaFieldMap.get(getIdField()).getName().getPrefixedName();
+            DeleteResult result = getCollection().deleteOne(MongoDBSerializationHelper.fieldMapToBson(idFieldName, id));
             if (!result.wasAcknowledged()) {
                 throw new DirectoryException(
                         "Error while deleting the entry, the request has not been acknowledged by the server");
@@ -452,7 +452,9 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     @Override
     public DocumentModel getEntryFromSource(String id, boolean fetchReferences) throws DirectoryException {
-        DocumentModelList result = query(Collections.singletonMap(getIdField(), id), Collections.emptySet(),
+        String idFieldName = schemaFieldMap != null ? schemaFieldMap.get(getIdField()).getName().getPrefixedName()
+                : getIdField();
+        DocumentModelList result = query(Collections.singletonMap(idFieldName, id), Collections.emptySet(),
                 Collections.emptyMap(), fetchReferences, 1, 0);
         return result.isEmpty() ? null : result.get(0);
     }
@@ -487,7 +489,11 @@ public class MongoDBSession extends BaseSession implements EntrySource {
     }
 
     protected DocumentModel fieldMapToDocumentModel(Map<String, Object> fieldMap) {
-        String id = String.valueOf(fieldMap.get(getIdField()));
+        String idFieldName = schemaFieldMap.get(getIdField()).getName().getPrefixedName();
+        if (!fieldMap.containsKey(idFieldName)) {
+            idFieldName = getIdField();
+        }
+        String id = String.valueOf(fieldMap.get(idFieldName));
         DocumentModel docModel = BaseSession.createEntryModel(null, schemaName, id, fieldMap, isReadOnly());
         return docModel;
     }
