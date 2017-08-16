@@ -153,6 +153,11 @@ public class TestMongoDBDirectory extends MongoDBDirectoryTestCase {
             assertEquals(1, results.size());
             assertEquals("europe", results.get(0).getId());
 
+            // check null fulltext field
+            results = session.query(filter, null);
+            assertEquals(1, results.size());
+            assertEquals("europe", results.get(0).getId());
+
             filter.put("obsolete", 1);
             DocumentModelList emptyResults = session.query(filter);
             assertEquals(0, emptyResults.size());

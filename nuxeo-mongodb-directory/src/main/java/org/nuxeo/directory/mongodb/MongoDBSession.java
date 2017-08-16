@@ -381,7 +381,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
             Object value = MongoDBSerializationHelper.valueToBson(entry.getValue());
             if (value != null) {
                 String key = entry.getKey();
-                if (fulltext.contains(key)) {
+                if (fulltext != null && fulltext.contains(key)) {
                     String val = String.valueOf(value);
                     switch (substringMatchType) {
                     case subany:
