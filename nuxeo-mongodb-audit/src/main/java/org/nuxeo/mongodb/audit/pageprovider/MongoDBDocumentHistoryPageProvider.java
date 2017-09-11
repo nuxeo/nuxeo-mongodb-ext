@@ -29,9 +29,9 @@ import org.apache.commons.logging.LogFactory;
 import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.DocumentModel;
 import org.nuxeo.ecm.core.api.SortInfo;
+import org.nuxeo.ecm.core.mongodb.MongoDBSerializationHelper;
 import org.nuxeo.ecm.platform.audit.api.document.AdditionalDocumentAuditParams;
 import org.nuxeo.ecm.platform.audit.api.document.DocumentAuditHelper;
-import org.nuxeo.mongodb.core.MongoDBSerializationHelper;
 
 /**
  * @since 9.1

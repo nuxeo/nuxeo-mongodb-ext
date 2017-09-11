@@ -31,6 +31,7 @@ import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.DocumentModel;
 import org.nuxeo.ecm.core.api.NuxeoException;
 import org.nuxeo.ecm.core.api.SortInfo;
+import org.nuxeo.ecm.core.mongodb.MongoDBSerializationHelper;
 import org.nuxeo.ecm.platform.audit.api.LogEntry;
 import org.nuxeo.ecm.platform.audit.api.comment.CommentProcessorHelper;
 import org.nuxeo.ecm.platform.audit.service.AuditBackend;
@@ -45,7 +46,6 @@ import org.nuxeo.ecm.platform.query.api.WhereClauseDefinition;
 import org.nuxeo.ecm.platform.query.nxql.NXQLQueryBuilder;
 import org.nuxeo.mongodb.audit.MongoDBAuditBackend;
 import org.nuxeo.mongodb.audit.MongoDBAuditEntryReader;
-import org.nuxeo.mongodb.core.MongoDBSerializationHelper;
 import org.nuxeo.runtime.api.Framework;
 
 import com.mongodb.client.FindIterable;

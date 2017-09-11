@@ -22,10 +22,10 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.bson.Document;
 import org.bson.conversions.Bson;
+import org.nuxeo.ecm.core.mongodb.MongoDBConnectionService;
+import org.nuxeo.ecm.core.mongodb.MongoDBSerializationHelper;
 import org.nuxeo.ecm.core.uidgen.AbstractUIDSequencer;
 import org.nuxeo.ecm.core.uidgen.UIDSequencer;
-import org.nuxeo.mongodb.core.MongoDBConnectionService;
-import org.nuxeo.mongodb.core.MongoDBSerializationHelper;
 import org.nuxeo.runtime.api.Framework;
 import org.nuxeo.runtime.services.config.ConfigurationService;
 

@@ -13,8 +13,8 @@
   <dependencies>
 
     <dependency>
-      <groupId>org.nuxeo.ecm.mongodb.ext</groupId>
-      <artifactId>nuxeo-mongodb-core</artifactId>
+      <groupId>org.nuxeo.ecm.core</groupId>
+      <artifactId>nuxeo-core-mongodb</artifactId>
     </dependency>
     <dependency>
       <groupId>org.nuxeo.ecm.mongodb.ext</groupId>
@@ -63,8 +63,8 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.nuxeo.ecm.mongodb.ext</groupId>
-      <artifactId>nuxeo-mongodb-core</artifactId>
+      <groupId>org.nuxeo.ecm.core</groupId>
+      <artifactId>nuxeo-core-mongodb</artifactId>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>

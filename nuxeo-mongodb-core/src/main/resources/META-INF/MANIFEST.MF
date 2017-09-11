@@ -1,6 +1,0 @@
-Manifest-Version: 1.0
-Bundle-ManifestVersion: 1
-Bundle-Name: Nuxeo MongoDB Core
-Bundle-SymbolicName: org.nuxeo.mongodb.core;singleton:=true
-Bundle-Version: 1.0.0
-Nuxeo-Component: OSGI-INF/mongodb-core-contrib.xml

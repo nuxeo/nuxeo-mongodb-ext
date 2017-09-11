@@ -18,7 +18,7 @@
  */
 package org.nuxeo.mongodb.audit;
 
-import org.nuxeo.mongodb.core.MongoDBComponentFeature;
+import org.nuxeo.ecm.core.mongodb.MongoDBComponentFeature;
 import org.nuxeo.runtime.test.runner.Deploy;
 import org.nuxeo.runtime.test.runner.Features;
 import org.nuxeo.runtime.test.runner.LocalDeploy;

@@ -40,11 +40,11 @@ import java.util.Map.Entry;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.bson.Document;
+import org.nuxeo.ecm.core.mongodb.MongoDBSerializationHelper;
 import org.nuxeo.ecm.platform.audit.api.ExtendedInfo;
 import org.nuxeo.ecm.platform.audit.api.LogEntry;
 import org.nuxeo.ecm.platform.audit.impl.ExtendedInfoImpl;
 import org.nuxeo.ecm.platform.audit.impl.LogEntryImpl;
-import org.nuxeo.mongodb.core.MongoDBSerializationHelper;
 
 import com.mongodb.DBObject;
 

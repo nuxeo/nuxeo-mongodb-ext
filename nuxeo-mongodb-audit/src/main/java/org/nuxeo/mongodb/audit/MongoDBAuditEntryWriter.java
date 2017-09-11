@@ -36,9 +36,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.bson.Document;
+import org.nuxeo.ecm.core.mongodb.MongoDBSerializationHelper;
 import org.nuxeo.ecm.platform.audit.api.ExtendedInfo;
 import org.nuxeo.ecm.platform.audit.api.LogEntry;
-import org.nuxeo.mongodb.core.MongoDBSerializationHelper;
 
 /**
  * Writer for MongoDB Audit.
