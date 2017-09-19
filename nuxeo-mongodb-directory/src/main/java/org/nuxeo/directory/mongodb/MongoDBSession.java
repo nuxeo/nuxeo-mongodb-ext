@@ -74,8 +74,6 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     private static final Log log = LogFactory.getLog(MongoDBSession.class);
 
-    protected MongoClient client;
-
     protected String dbName;
 
     protected String schemaName;
@@ -95,7 +93,6 @@ public class MongoDBSession extends BaseSession implements EntrySource {
     public MongoDBSession(MongoDBDirectory directory) {
         super(directory);
         MongoDBDirectoryDescriptor desc = directory.getDescriptor();
-        client = MongoDBConnectionHelper.newMongoClient(desc.getServerUrl());
         dbName = desc.getDatabaseName();
         directoryName = directory.getName();
         countersCollectionName = directory.getCountersCollectionName();
@@ -408,7 +405,6 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     @Override
     public void close() throws DirectoryException {
-        client.close();
         getDirectory().removeSession(this);
     }
 
@@ -466,7 +462,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
      * @return the MongoDB collection
      */
     public MongoCollection<Document> getCollection(String collection) {
-        return MongoDBConnectionHelper.getCollection(client, dbName, collection);
+        return MongoDBConnectionHelper.getCollection(getClient(), dbName, collection);
     }
 
     /**
@@ -485,7 +481,7 @@ public class MongoDBSession extends BaseSession implements EntrySource {
      * @return true if the server has the collection, false otherwise
      */
     public boolean hasCollection(String collection) {
-        return MongoDBConnectionHelper.hasCollection(client, dbName, collection);
+        return MongoDBConnectionHelper.hasCollection(getClient(), dbName, collection);
     }
 
     protected DocumentModel fieldMapToDocumentModel(Map<String, Object> fieldMap) {
@@ -496,6 +492,10 @@ public class MongoDBSession extends BaseSession implements EntrySource {
         String id = String.valueOf(fieldMap.get(idFieldName));
         DocumentModel docModel = BaseSession.createEntryModel(null, schemaName, id, fieldMap, isReadOnly());
         return docModel;
+    }
+
+    protected MongoClient getClient() {
+        return getDirectory().getClient();
     }
 
 }

@@ -24,8 +24,8 @@ import static org.nuxeo.ecm.directory.BaseDirectoryDescriptor.CREATE_TABLE_POLIC
 import static org.nuxeo.mongodb.core.MongoDBSerializationHelper.MONGODB_ID;
 import static org.nuxeo.mongodb.core.MongoDBSerializationHelper.MONGODB_SEQ;
 
+import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.Filters;
 import org.nuxeo.ecm.core.cache.CacheService;
 import org.nuxeo.ecm.core.schema.SchemaManager;
 import org.nuxeo.ecm.core.schema.types.Field;
@@ -35,6 +35,7 @@ import org.nuxeo.ecm.directory.Directory;
 import org.nuxeo.ecm.directory.DirectoryCSVLoader;
 import org.nuxeo.ecm.directory.DirectoryException;
 import org.nuxeo.ecm.directory.Session;
+import org.nuxeo.mongodb.core.MongoDBConnectionHelper;
 import org.nuxeo.mongodb.core.MongoDBSerializationHelper;
 import org.nuxeo.runtime.api.Framework;
 
@@ -54,6 +55,8 @@ public class MongoDBDirectory extends AbstractDirectory {
     protected String countersCollectionName;
 
     protected boolean initialized;
+
+    protected MongoClient client;
 
     public MongoDBDirectory(MongoDBDirectoryDescriptor descriptor) {
         super(descriptor);
@@ -86,6 +89,7 @@ public class MongoDBDirectory extends AbstractDirectory {
         }
 
         countersCollectionName = getName() + ".counters";
+        client = MongoDBConnectionHelper.newMongoClient(descriptor.getServerUrl());
 
     }
 
@@ -159,5 +163,15 @@ public class MongoDBDirectory extends AbstractDirectory {
 
     public String getCountersCollectionName() {
         return countersCollectionName;
+    }
+
+    @Override
+    public void shutdown() {
+        super.shutdown();
+        client.close();
+    }
+
+    protected MongoClient getClient() {
+        return client;
     }
 }
