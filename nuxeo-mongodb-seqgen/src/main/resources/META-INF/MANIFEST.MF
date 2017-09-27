@@ -1,6 +1,0 @@
-Manifest-Version: 1.0
-Bundle-ManifestVersion: 1
-Bundle-Name: Nuxeo MongoDB Sequence Generator
-Bundle-SymbolicName: org.nuxeo.mongodb.seqgen;singleton:=true
-Bundle-Version: 1.0.0
-Nuxeo-Component: OSGI-INF/mongodb-seqgen-contrib.xml
