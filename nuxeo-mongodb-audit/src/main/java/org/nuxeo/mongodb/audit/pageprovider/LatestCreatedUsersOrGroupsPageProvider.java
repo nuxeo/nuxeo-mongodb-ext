@@ -70,11 +70,11 @@ public class LatestCreatedUsersOrGroupsPageProvider extends AbstractPageProvider
                     } else if (UserManagerImpl.USERCREATED_EVENT_ID.equals(e.getEventId())) {
                         doc = um.getUserModel(id);
                     } else {
-                        break;
+                        continue;
                     }
                     if (doc == null) {
                         // probably user/group does not exist anymore
-                        break;
+                        continue;
                     }
                     currentPage.add(doc);
                 }
