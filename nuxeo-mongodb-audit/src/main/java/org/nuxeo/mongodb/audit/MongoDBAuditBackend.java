@@ -68,6 +68,7 @@ import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Indexes;
 import com.mongodb.client.model.Sorts;
 
 /**
@@ -111,7 +112,9 @@ public class MongoDBAuditBackend extends AbstractAuditBackend implements AuditBa
         MongoDBConnectionService mongoService = Framework.getService(MongoDBConnectionService.class);
         MongoDatabase database = mongoService.getDatabase(AUDIT_DATABASE_ID);
         collection = database.getCollection(collName);
-        // TODO migration ?
+        collection.createIndex(Indexes.ascending(PROPERTY_DOC_UUID)); // query by doc id
+        collection.createIndex(Indexes.ascending(PROPERTY_EVENT_DATE)); // query by date range
+        collection.createIndex(Indexes.ascending(PROPERTY_EVENT_ID)); // query by type of event
     }
 
     @Override
