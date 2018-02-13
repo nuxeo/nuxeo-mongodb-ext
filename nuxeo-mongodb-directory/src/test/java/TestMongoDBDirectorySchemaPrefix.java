@@ -19,6 +19,7 @@
  */
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,6 +49,8 @@ public class TestMongoDBDirectorySchemaPrefix extends MongoDBDirectoryTestCase {
         try (Session session = openSession(USER_DIR)) {
             DocumentModel dm = session.getEntry("user_1");
             assertEquals("user_1", dm.getProperty(SCHEMA, "username"));
+
+            assertTrue(session.hasEntry("user_1"));
         }
     }
 

@@ -438,7 +438,8 @@ public class MongoDBSession extends BaseSession implements EntrySource {
 
     @Override
     public boolean hasEntry(String id) {
-        return getCollection().count(MongoDBSerializationHelper.fieldMapToBson(getIdField(), id)) > 0;
+        String idFieldName = schemaFieldMap.get(getIdField()).getName().getPrefixedName();
+        return getCollection().count(MongoDBSerializationHelper.fieldMapToBson(idFieldName, id)) > 0;
     }
 
     @Override
