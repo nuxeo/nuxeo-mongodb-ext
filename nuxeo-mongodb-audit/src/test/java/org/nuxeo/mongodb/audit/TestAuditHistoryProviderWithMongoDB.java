@@ -28,7 +28,9 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import javax.inject.Inject;
@@ -39,11 +41,13 @@ import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.DocumentModel;
 import org.nuxeo.ecm.core.api.SortInfo;
 import org.nuxeo.ecm.core.api.VersioningOption;
+import org.nuxeo.ecm.core.api.event.DocumentEventTypes;
 import org.nuxeo.ecm.core.versioning.VersioningService;
 import org.nuxeo.ecm.platform.audit.api.AuditLogger;
 import org.nuxeo.ecm.platform.audit.api.AuditReader;
 import org.nuxeo.ecm.platform.audit.api.LogEntry;
 import org.nuxeo.ecm.platform.audit.impl.LogEntryImpl;
+import org.nuxeo.ecm.platform.audit.service.NXAuditEventsService;
 import org.nuxeo.ecm.platform.query.api.PageProvider;
 import org.nuxeo.ecm.platform.query.api.PageProviderDefinition;
 import org.nuxeo.ecm.platform.query.api.PageProviderService;
@@ -169,8 +173,19 @@ public class TestAuditHistoryProviderWithMongoDB {
 
         waitForAsyncCompletion();
 
+        // create another version WITHOUT HISTORY (hack) (to check migration to mongodb audit on existing docs)
+        Set<String> disabledEvents = disableAuditableEvents(DocumentEventTypes.DOCUMENT_CHECKEDIN,
+                DocumentEventTypes.DOCUMENT_CREATED);
+        try {
+            doc.checkIn(VersioningOption.MAJOR, null);
+            Thread.sleep(500);
+            waitForAsyncCompletion();
+        } finally {
+            addAuditableEvents(disabledEvents);
+        }
+
         versions = session.getVersions(doc.getRef());
-        assertEquals(2, versions.size());
+        assertEquals(3, versions.size());
         if (verbose) {
             for (DocumentModel version : versions) {
                 System.out.println("version: " + version.getId());
@@ -207,6 +222,27 @@ public class TestAuditHistoryProviderWithMongoDB {
             System.out.println("Total entries = " + logs.size());
             dump(logs);
         }
+    }
+
+    protected Set<String> disableAuditableEvents(String... eventNames) {
+        Set<String> disabledEvents = new HashSet<>();
+        Set<String> auditableEventNames = getAuditableEventNames();
+        for (String eventName : eventNames) {
+            if (auditableEventNames.remove(eventName)) {
+                disabledEvents.add(eventName);
+            }
+        }
+        return disabledEvents;
+    }
+
+    protected void addAuditableEvents(Set<String> eventNames) {
+        getAuditableEventNames().addAll(eventNames);
+    }
+
+    protected Set<String> getAuditableEventNames() {
+        NXAuditEventsService auditService = (NXAuditEventsService) Framework.getRuntime().getComponent(
+                NXAuditEventsService.NAME);
+        return auditService.getAuditableEventNames();
     }
 
     @Test
@@ -353,6 +389,16 @@ public class TestAuditHistoryProviderWithMongoDB {
         assertEquals(Long.valueOf(startIdx + versin2EntriesCount).longValue(),
                 entries.get(versin2EntriesCount - 1).getId());
 
+        // get version 3 history (the version history is empty -- so we use a different codepath to find the maxDate)
+        pp = pps.getPageProvider("DOCUMENT_HISTORY_PROVIDER", si, Long.valueOf(20), Long.valueOf(0), new HashMap<>(),
+                versions.get(2));
+        pp.setSearchDocumentModel(searchDoc);
+        entries = (List<LogEntry>) pp.getCurrentPage();
+        // creation + 5x2 updates + checkin/update + checkin
+        int entriesCount = 1 + 5 * 2 + 1 + 1 + 1;
+        assertEquals(entriesCount, entries.size());
+        assertEquals(Long.valueOf(startIdx).longValue(), entries.get(0).getId());
+        assertEquals(Long.valueOf(startIdx + entriesCount).longValue(), entries.get(entriesCount - 1).getId());
     }
 
 }

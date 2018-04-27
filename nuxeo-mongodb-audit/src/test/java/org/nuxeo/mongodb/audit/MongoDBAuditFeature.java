@@ -28,7 +28,7 @@ import org.nuxeo.runtime.test.runner.SimpleFeature;
  * @since 9.1
  */
 @Deploy({ "org.nuxeo.ecm.platform.audit.api", "org.nuxeo.ecm.platform.audit", "org.nuxeo.ecm.platform.uidgen.core",
-        "org.nuxeo.mongodb.audit", "org.nuxeo.mongodb.audit.test" })
+        "org.nuxeo.mongodb.audit", "org.nuxeo.mongodb.audit.test", "org.nuxeo.ecm.platform.dublincore" })
 @Features(MongoDBComponentFeature.class)
 @LocalDeploy({ "org.nuxeo.mongodb.audit.test:OSGI-INF/mongodb-audit-test-contrib.xml"})
 public class MongoDBAuditFeature extends SimpleFeature {

@@ -169,9 +169,13 @@ public class MongoDBAuditBackend extends AbstractAuditBackend implements AuditBa
 
     @Override
     public List<?> nativeQuery(String query, Map<String, Object> params, int pageNb, int pageSize) {
+        String sort = params == null ? null : (String) params.remove("__SORT__"); // hack, don't change API
         Bson filter = buildFilter(query, params);
         logRequest(filter, pageNb, pageSize);
         FindIterable<Document> iterable = collection.find(filter).skip(pageNb * pageSize).limit(pageSize);
+        if (sort != null) {
+            iterable = iterable.sort(Document.parse(sort));
+        }
         return buildLogEntries(iterable);
     }
 
